@@ -179,6 +179,12 @@
   font-size: 0.875rem;
 }
 
+.fb-data-source-fields__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .fb-data-source-field-row {
   display: grid;
   grid-template-columns: 1fr 1fr auto;

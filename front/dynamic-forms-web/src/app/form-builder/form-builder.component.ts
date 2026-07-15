@@ -67,6 +67,9 @@ export class FormBuilderComponent {
   readonly lookupSources = signal<string[]>([]);
   readonly saving = signal(false);
 
+  /** Datasources dont la détection des champs est en cours (spinner sur le bouton). */
+  readonly probing = signal<Set<string>>(new Set());
+
   /** Erreurs de validation renvoyées par le back au dernier enregistrement. */
   readonly saveErrors = signal<string[]>([]);
 
@@ -91,8 +94,72 @@ export class FormBuilderComponent {
       next: (schema) => {
         this.state.load(schema);
         this.saveErrors.set([]);
+        // Rafraîchir les champs détectables : le mapping doit proposer ce que l'API renvoie.
+        this.state.dataSources().forEach((_, i) => this.detectFields(i, { silent: true }));
       },
       error: () => this.snackBar.open('Chargement impossible.', 'OK', { duration: 3000 }),
+    });
+  }
+
+  /** Une détection est-elle en cours pour cette datasource ? */
+  isProbing(sourceId: string): boolean {
+    return this.probing().has(sourceId);
+  }
+
+  /**
+   * Appelle réellement l'URL de la datasource et remplit ses « champs disponibles » avec
+   * les clés effectivement présentes dans la réponse. C'est ce qui garantit que le mapping
+   * de résultat propose les vrais champs reçus, sans saisie manuelle.
+   */
+  detectFields(index: number, opts: { silent?: boolean } = {}): void {
+    const source = this.state.dataSources()[index];
+    if (!source?.url?.trim()) {
+      if (!opts.silent) {
+        this.snackBar.open('Renseigne d\'abord une URL pour cette datasource.', 'OK', { duration: 3000 });
+      }
+      return;
+    }
+
+    this.probing.update((set) => new Set(set).add(source.id));
+
+    this.api.probeDataSourceFields(source.url, source.queryParam).subscribe({
+      next: (paths) => {
+        this.probing.update((set) => {
+          const next = new Set(set);
+          next.delete(source.id);
+          return next;
+        });
+
+        if (!paths.length) {
+          if (!opts.silent) {
+            this.snackBar.open('Aucun champ détecté (réponse vide ou inaccessible).', 'OK', { duration: 3000 });
+          }
+          return;
+        }
+
+        // Fusion : on garde les libellés déjà saisis, on ajoute les champs nouvellement détectés.
+        const existing = new Map((source.availableFields ?? []).map((f) => [f.path, f.label]));
+        const availableFields: DataSourceFieldDefinition[] = paths.map((path) => ({
+          path,
+          label: existing.get(path) || path,
+        }));
+
+        this.state.updateDataSource(index, { availableFields });
+
+        if (!opts.silent) {
+          this.snackBar.open(`${paths.length} champ(s) détecté(s).`, 'OK', { duration: 2500 });
+        }
+      },
+      error: () => {
+        this.probing.update((set) => {
+          const next = new Set(set);
+          next.delete(source.id);
+          return next;
+        });
+        if (!opts.silent) {
+          this.snackBar.open('Détection impossible.', 'OK', { duration: 3000 });
+        }
+      },
     });
   }
 

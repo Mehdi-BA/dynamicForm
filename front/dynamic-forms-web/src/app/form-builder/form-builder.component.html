@@ -85,27 +85,8 @@
   <!-- ── Colonne 2 : structure + aperçu ─────────────────────────────────────── -->
   <section class="fb-col fb-col--canvas">
     <mat-tab-group>
-      <mat-tab label="Structure">
+      <mat-tab label="Data sources">
         <div class="fb-tab">
-          <div class="fb-form-props">
-            <mat-form-field appearance="outline">
-              <mat-label>Titre du formulaire</mat-label>
-              <input
-                matInput
-                [ngModel]="state.schema().title"
-                (ngModelChange)="state.patchSchema({ title: $event })" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Identifiant</mat-label>
-              <input
-                matInput
-                [ngModel]="state.schema().id"
-                (ngModelChange)="state.patchSchema({ id: $event })" />
-              <mat-hint>Sert dans l'URL : /api/forms/&lbrace;id&rbrace;</mat-hint>
-            </mat-form-field>
-          </div>
-
           <section class="fb-data-sources">
             <div class="fb-data-sources__header">
               <h3 class="fb-col__title">Datasources</h3>
@@ -114,6 +95,12 @@
                 Ajouter une datasource
               </button>
             </div>
+
+            <p class="fb-hint">
+              Une datasource décrit un appel d'API réutilisable. Les champs autocomplete/select
+              la référencent par identifiant, et le mapping de résultat pioche dans les champs
+              reçus (détecte-les depuis la réponse avec le bouton « Détecter les champs »).
+            </p>
 
             @for (source of state.dataSources(); track source.id; let sourceIndex = $index) {
               <div class="fb-data-source-card">
@@ -159,10 +146,21 @@
                 <div class="fb-data-source-fields">
                   <div class="fb-data-source-fields__header">
                     <span>Champs disponibles pour les mappings</span>
-                    <button mat-stroked-button type="button" (click)="addDataSourceField(sourceIndex)">
-                      <mat-icon>add</mat-icon>
-                      Ajouter un champ
-                    </button>
+                    <div class="fb-data-source-fields__actions">
+                      <button
+                        mat-flat-button
+                        color="primary"
+                        type="button"
+                        [disabled]="isProbing(source.id) || !source.url.trim()"
+                        (click)="detectFields(sourceIndex)">
+                        <mat-icon>{{ isProbing(source.id) ? 'hourglass_empty' : 'sync' }}</mat-icon>
+                        Détecter les champs
+                      </button>
+                      <button mat-stroked-button type="button" (click)="addDataSourceField(sourceIndex)">
+                        <mat-icon>add</mat-icon>
+                        Ajouter un champ
+                      </button>
+                    </div>
                   </div>
 
                   @for (fieldDef of source.availableFields ?? []; track $index; let fieldIndex = $index) {
@@ -181,6 +179,11 @@
                         <mat-icon>close</mat-icon>
                       </button>
                     </div>
+                  } @empty {
+                    <p class="fb-hint">
+                      Aucun champ. Clique sur « Détecter les champs » pour les lire depuis la réponse
+                      de l'API, ou ajoute-les à la main.
+                    </p>
                   }
                 </div>
               </div>
@@ -188,6 +191,29 @@
               <p class="fb-hint">Aucune datasource définie. Ajoute une datasource pour simplifier les champs autocomplete/select.</p>
             }
           </section>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Structure">
+        <div class="fb-tab">
+          <div class="fb-form-props">
+            <mat-form-field appearance="outline">
+              <mat-label>Titre du formulaire</mat-label>
+              <input
+                matInput
+                [ngModel]="state.schema().title"
+                (ngModelChange)="state.patchSchema({ title: $event })" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Identifiant</mat-label>
+              <input
+                matInput
+                [ngModel]="state.schema().id"
+                (ngModelChange)="state.patchSchema({ id: $event })" />
+              <mat-hint>Sert dans l'URL : /api/forms/&lbrace;id&rbrace;</mat-hint>
+            </mat-form-field>
+          </div>
 
           @if (state.isEmpty()) {
             <div class="fb-empty">

@@ -108,6 +108,54 @@ export class FormApiService {
     );
   }
 
+  /**
+   * Interroge une datasource pour en déduire les champs réellement présents dans la réponse.
+   *
+   * Le builder s'en sert pour proposer, dans le mapping de résultat, les vrais champs reçus
+   * (ex: id, raisonSociale, ville…) plutôt qu'une liste figée. On lit une seule ligne
+   * d'exemple et on aplatit ses clés en chemins pointés (data.code, address.city…).
+   */
+  probeDataSourceFields(url: string, queryParam?: string): Observable<string[]> {
+    const trimmed = url?.trim();
+
+    if (!trimmed) {
+      return of([]);
+    }
+
+    // Un q vide renvoie généralement les premières lignes : suffisant pour lire la forme.
+    const params = queryParam?.trim() ? { [queryParam.trim()]: '' } : {};
+
+    return this.http.get<unknown>(this.toAbsoluteUrl(trimmed), { params }).pipe(
+      map((body) => {
+        const sample = Array.isArray(body) ? body[0] : body;
+
+        if (!sample || typeof sample !== 'object') {
+          return [];
+        }
+
+        return this.flattenKeys(sample as Record<string, unknown>);
+      }),
+      catchError(() => of([])),
+    );
+  }
+
+  /** Aplatit un objet en chemins pointés, en s'arrêtant aux tableaux et aux valeurs scalaires. */
+  private flattenKeys(obj: Record<string, unknown>, prefix = ''): string[] {
+    const keys: string[] = [];
+
+    for (const [key, value] of Object.entries(obj)) {
+      const path = prefix ? `${prefix}.${key}` : key;
+
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        keys.push(...this.flattenKeys(value as Record<string, unknown>, path));
+      } else {
+        keys.push(path);
+      }
+    }
+
+    return keys;
+  }
+
   /** Résout un code en libellé via l'API référentiel key/value interne. */
   resolveLookupBySource(source: string, key: string): Observable<LookupItem | null> {
     if (!source || !key) {
