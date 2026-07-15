@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { Observable, of, shareReplay } from 'rxjs';
+import { catchError, map, Observable, of } from 'rxjs';
 import { FormSchema } from '../models/form-schema.model';
 
 export interface FormSummary {
@@ -12,6 +12,19 @@ export interface FormSummary {
 export interface LookupItem {
   value: string;
   label: string;
+  raw?: Record<string, unknown>;
+}
+
+interface ReferentialItem {
+  key: string;
+  value: string;
+}
+
+export interface LookupFromUrlConfig {
+  lookupUrl: string;
+  lookupKeyField?: string;
+  lookupValueField?: string;
+  lookupQueryParam?: string;
 }
 
 export interface SubmitResult {
@@ -25,9 +38,6 @@ const API = 'http://localhost:5244/api';
 @Injectable({ providedIn: 'root' })
 export class FormApiService {
   private readonly http = inject(HttpClient);
-
-  /** Cache par source : les référentiels d'autocomplete ne changent pas pendant la session. */
-  private readonly lookupCache = new Map<string, Observable<LookupItem[]>>();
 
   listForms(): Observable<FormSummary[]> {
     return this.http.get<FormSummary[]>(`${API}/forms`);
@@ -55,32 +65,67 @@ export class FormApiService {
     return this.http.get<string[]>(`${API}/lookup`);
   }
 
-  /**
-   * Charge une source de lookup en entier, une seule fois.
-   *
-   * Le filtrage se fait ensuite côté client : ces référentiels sont petits (pays, villes),
-   * et un appel réseau par frappe pour filtrer 18 pays serait du gaspillage. Pour une source
-   * volumineuse il faudrait passer `q` au back — `searchLookup` ci-dessous fait exactement ça.
-   */
-  loadLookup(source: string): Observable<LookupItem[]> {
-    if (!this.lookupCache.has(source)) {
-      this.lookupCache.set(
-        source,
-        this.http.get<LookupItem[]>(`${API}/lookup/${source}`, { params: { take: 100 } }).pipe(
-          shareReplay({ bufferSize: 1, refCount: false }),
-        ),
-      );
-    }
-
-    return this.lookupCache.get(source)!;
-  }
-
-  /** Recherche côté serveur — pour les référentiels trop gros pour être chargés en entier. */
-  searchLookup(source: string, q: string): Observable<LookupItem[]> {
+  /** Recherche côté serveur via source interne key/value. */
+  searchLookupBySource(source: string, q: string): Observable<LookupItem[]> {
     if (!source) {
       return of([]);
     }
 
-    return this.http.get<LookupItem[]>(`${API}/lookup/${source}`, { params: { q } });
+    return this.http
+      .get<ReferentialItem[]>(`${API}/referentials/${source}/search`, { params: { q } })
+      .pipe(
+        map((items) =>
+          items.map((item) => ({ value: item.key, label: item.value, raw: { key: item.key, value: item.value } })),
+        ),
+      );
+  }
+
+  /** Recherche côté serveur via URL paramétrée dans le schéma. */
+  searchLookupByUrl(config: LookupFromUrlConfig, q: string): Observable<LookupItem[]> {
+    const lookupUrl = config.lookupUrl?.trim();
+
+    if (!lookupUrl) {
+      return of([]);
+    }
+
+    const keyField = (config.lookupKeyField || 'key').trim();
+    const valueField = (config.lookupValueField || 'value').trim();
+    const queryParam = (config.lookupQueryParam || 'q').trim();
+
+    const params = queryParam ? { [queryParam]: q } : {};
+
+    return this.http.get<Record<string, unknown>[]>(this.toAbsoluteUrl(lookupUrl), { params }).pipe(
+      map((rows) =>
+        rows
+          .map((row) => ({
+            value: String(row[keyField] ?? ''),
+            label: String(row[valueField] ?? ''),
+            raw: row,
+          }))
+          .filter((item) => !!item.value && !!item.label),
+      ),
+      catchError(() => of([])),
+    );
+  }
+
+  /** Résout un code en libellé via l'API référentiel key/value interne. */
+  resolveLookupBySource(source: string, key: string): Observable<LookupItem | null> {
+    if (!source || !key) {
+      return of(null);
+    }
+
+    return this.http.get<ReferentialItem>(`${API}/referentials/${source}/${encodeURIComponent(key)}`).pipe(
+      map((item) => ({ value: item.key, label: item.value, raw: { key: item.key, value: item.value } })),
+      catchError(() => of(null)),
+    );
+  }
+
+  private toAbsoluteUrl(url: string): string {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+
+    const normalized = url.startsWith('/') ? url : `/${url}`;
+    return `http://localhost:5244${normalized}`;
   }
 }

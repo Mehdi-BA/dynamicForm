@@ -24,8 +24,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatSelectModule } from '@angular/material/select';
-import { startWith } from 'rxjs';
-import { FieldSchema } from '../models/form-schema.model';
+import { catchError, debounceTime, distinctUntilChanged, of, startWith, switchMap } from 'rxjs';
+import { FieldSchema, OptionSchema } from '../models/form-schema.model';
 import { ConditionEvaluatorService } from '../services/condition-evaluator.service';
 import { DynamicFormBuilderService } from '../services/dynamic-form-builder.service';
 import { FormApiService, LookupItem } from '../services/form-api.service';
@@ -84,34 +84,13 @@ export class DynamicFieldComponent {
    */
   private readonly rootValue = signal<unknown>({});
 
-  /** Options de la source de lookup (autocomplete), une fois chargées. */
-  private readonly lookupItems = signal<LookupItem[]>([]);
-
-  /** Ce que l'utilisateur a tapé dans l'autocomplete. */
-  private readonly typed = signal('');
+  /** Options de la source de lookup (autocomplete), alimentées par recherche distante. */
+  readonly lookupItems = signal<LookupItem[]>([]);
 
   /** Le champ passe-t-il sa condition d'affichage ? */
   readonly visible = computed(() =>
     this.conditions.evaluate(this.field().visibleIf, this.rootValue()),
   );
-
-  /** Options de l'autocomplete filtrées par la saisie. */
-  readonly visibleLookupItems = computed(() => {
-    const items = this.lookupItems();
-    const needle = this.typed().toLowerCase().trim();
-
-    if (!needle) {
-      return items;
-    }
-
-    // Si la saisie correspond à un code déjà sélectionné, on réaffiche toute la liste
-    // plutôt qu'une liste vide (le champ contient "TN", pas "Tunisie").
-    if (items.some((i) => i.value.toLowerCase() === needle)) {
-      return items;
-    }
-
-    return items.filter((i) => i.label.toLowerCase().includes(needle));
-  });
 
   constructor() {
     // Suivre la valeur de la racine, pour réévaluer les conditions.
@@ -145,26 +124,81 @@ export class DynamicFieldComponent {
       }
     });
 
-    // Charger la source de lookup et suivre la saisie, pour les champs autocomplete.
+    // Charger/résoudre la valeur courante puis rechercher côté API pendant la saisie.
     effect((onCleanup) => {
       const schema = this.field();
-      const source = schema.lookupSource;
+      const control = untracked(() => this.control());
 
-      if (schema.type !== 'autocomplete' || !source) {
+      if (schema.type !== 'autocomplete' || !control) {
         return;
       }
 
-      const lookupSub = this.api.loadLookup(source).subscribe((items) => this.lookupItems.set(items));
+      const currentValue = String(control.value ?? '').trim();
+      const resolveSub = currentValue
+        ? this.resolveLookup(schema, currentValue).subscribe((item) => {
+            if (!item) {
+              return;
+            }
 
-      const control = untracked(() => this.control());
-      const typedSub = control?.valueChanges
-        .pipe(startWith(control.value))
-        .subscribe((v) => this.typed.set(String(v ?? '')));
+            this.lookupItems.update((items) => {
+              if (items.some((x) => x.value === item.value)) {
+                return items;
+              }
+
+              return [item, ...items];
+            });
+          })
+        : null;
+
+      const searchSub = control.valueChanges
+        .pipe(
+          startWith(''),
+          debounceTime(250),
+          distinctUntilChanged(),
+          switchMap((value) => this.searchLookup(schema, String(value ?? '').trim())),
+          catchError(() => of([] as LookupItem[])),
+        )
+        .subscribe((items) => {
+          const selectedValue = String(control.value ?? '').trim();
+          const selected = this.lookupItems().find((item) => item.value === selectedValue);
+
+          if (selected && !items.some((item) => item.value === selected.value)) {
+            this.lookupItems.set([selected, ...items]);
+            return;
+          }
+
+          this.lookupItems.set(items);
+        });
 
       onCleanup(() => {
-        lookupSub.unsubscribe();
-        typedSub?.unsubscribe();
+        resolveSub?.unsubscribe();
+        searchSub.unsubscribe();
       });
+    });
+
+    // Propager les valeurs du résultat sélectionné vers les champs cibles configurés.
+    effect((onCleanup) => {
+      const schema = this.field();
+      const control = untracked(() => this.control());
+
+      if (!control || !schema.resultMappings?.length) {
+        return;
+      }
+
+      if (schema.type !== 'autocomplete' && schema.type !== 'select') {
+        return;
+      }
+
+      const sub = control.valueChanges.pipe(startWith(control.value)).subscribe((value) => {
+        const result = this.selectedResult(schema, value);
+        if (!result) {
+          return;
+        }
+
+        this.applyResultMappings(schema, result);
+      });
+
+      onCleanup(() => sub.unsubscribe());
     });
   }
 
@@ -217,6 +251,107 @@ export class DynamicFieldComponent {
 
     return this.lookupItems().find((i) => i.value === value)?.label ?? value;
   };
+
+  private searchLookup(schema: FieldSchema, query: string) {
+    const lookupUrl = schema.lookupUrl?.trim();
+
+    if (lookupUrl) {
+      return this.api.searchLookupByUrl(
+        {
+          lookupUrl,
+          lookupKeyField: schema.lookupKeyField,
+          lookupValueField: schema.lookupValueField,
+          lookupQueryParam: schema.lookupQueryParam,
+        },
+        query,
+      );
+    }
+
+    return this.api.searchLookupBySource(schema.lookupSource ?? '', query);
+  }
+
+  private resolveLookup(schema: FieldSchema, key: string) {
+    const source = schema.lookupSource?.trim();
+
+    // Le mode URL n'impose pas de route de résolution : on garde la clé tant que
+    // l'utilisateur n'a pas relancé une recherche qui renvoie le libellé.
+    if (!source || schema.lookupUrl?.trim()) {
+      return of(null as LookupItem | null);
+    }
+
+    return this.api.resolveLookupBySource(source, key);
+  }
+
+  private selectedResult(schema: FieldSchema, selectedValue: unknown): Record<string, unknown> | null {
+    if (schema.type === 'autocomplete') {
+      const item = this.lookupItems().find((x) => x.value === String(selectedValue ?? ''));
+      if (!item) {
+        return null;
+      }
+
+      return item.raw ?? { value: item.value, label: item.label };
+    }
+
+    if (schema.type === 'select') {
+      const option = (schema.options ?? []).find((o) => this.sameValue(o.value, selectedValue));
+      if (!option) {
+        return null;
+      }
+
+      const data = this.optionData(option);
+      return { value: option.value, label: option.label, data };
+    }
+
+    return null;
+  }
+
+  private applyResultMappings(schema: FieldSchema, result: Record<string, unknown>): void {
+    const mappings = schema.resultMappings ?? [];
+
+    for (const mapping of mappings) {
+      const targetPath = mapping.targetField?.trim();
+      if (!targetPath || targetPath === schema.name) {
+        continue;
+      }
+
+      const target = this.rootForm().get(targetPath);
+      if (!target || target.disabled) {
+        continue;
+      }
+
+      const sourcePath = mapping.sourceField?.trim();
+      const next = sourcePath ? this.valueAtPath(result, sourcePath) : undefined;
+
+      if (this.sameValue(target.value, next ?? null)) {
+        continue;
+      }
+
+      target.setValue(next ?? null);
+    }
+  }
+
+  private valueAtPath(source: Record<string, unknown>, path: string): unknown {
+    const parts = path.split('.').map((p) => p.trim()).filter(Boolean);
+
+    let current: unknown = source;
+    for (const part of parts) {
+      if (!current || typeof current !== 'object' || !(part in (current as Record<string, unknown>))) {
+        return undefined;
+      }
+
+      current = (current as Record<string, unknown>)[part];
+    }
+
+    return current;
+  }
+
+  private optionData(option: OptionSchema): Record<string, unknown> {
+    return option.data && typeof option.data === 'object' ? option.data : {};
+  }
+
+  private sameValue(a: unknown, b: unknown): boolean {
+    return JSON.stringify(a) === JSON.stringify(b);
+  }
 
   // ---------------------------------------------------------------------------
   // Erreurs

@@ -14,6 +14,7 @@ import {
   FieldSchema,
   FieldType,
   OptionSchema,
+  ResultMappingSchema,
   ValidatorSchema,
 } from '../../dynamic-form/models/form-schema.model';
 import { BuilderStateService, FIELD_TYPES, FieldPath } from '../services/builder-state.service';
@@ -99,6 +100,11 @@ export class FieldPropertiesComponent {
     return t === 'select' || t === 'radio';
   });
 
+  readonly canMapResult = computed(() => {
+    const t = this.field().type;
+    return t === 'select' || t === 'autocomplete';
+  });
+
   /** Les validateurs pertinents pour le type courant. */
   readonly availableValidators = computed(() => {
     const type = this.field().type;
@@ -136,6 +142,8 @@ export class FieldPropertiesComponent {
     return paths;
   });
 
+  readonly resultMappings = computed<ResultMappingSchema[]>(() => this.field().resultMappings ?? []);
+
   // ---------------------------------------------------------------------------
   // Propriétés simples
   // ---------------------------------------------------------------------------
@@ -146,6 +154,17 @@ export class FieldPropertiesComponent {
 
   onTypeChange(type: FieldType): void {
     this.patch({ type });
+  }
+
+  setLookupUrl(url: string): void {
+    const trimmed = url.trim();
+
+    this.patch({
+      lookupUrl: trimmed || undefined,
+      lookupKeyField: this.field().lookupKeyField || (trimmed ? 'key' : undefined),
+      lookupValueField: this.field().lookupValueField || (trimmed ? 'value' : undefined),
+      lookupQueryParam: this.field().lookupQueryParam || (trimmed ? 'q' : undefined),
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -219,6 +238,36 @@ export class FieldPropertiesComponent {
     const options = [...(this.field().options ?? [])];
     options.splice(index, 1);
     this.patch({ options });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Mapping de résultat (autocomplete/select -> autres champs)
+  // ---------------------------------------------------------------------------
+
+  addResultMapping(): void {
+    const firstTarget = this.conditionTargets()[0]?.path;
+
+    const mappings = [...this.resultMappings()];
+    mappings.push({ sourceField: 'value', targetField: firstTarget ?? '' });
+
+    this.patch({ resultMappings: mappings });
+  }
+
+  updateResultMapping(index: number, patch: Partial<ResultMappingSchema>): void {
+    const mappings = [...this.resultMappings()];
+
+    if (!mappings[index]) {
+      return;
+    }
+
+    mappings[index] = { ...mappings[index], ...patch };
+    this.patch({ resultMappings: mappings });
+  }
+
+  removeResultMapping(index: number): void {
+    const mappings = [...this.resultMappings()];
+    mappings.splice(index, 1);
+    this.patch({ resultMappings: mappings.length ? mappings : undefined });
   }
 
   // ---------------------------------------------------------------------------

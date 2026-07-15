@@ -16,6 +16,15 @@
     <mat-icon>save</mat-icon>
     Enregistrer
   </button>
+
+  <button
+    mat-stroked-button
+    class="fb-toolbar__save-as"
+    [disabled]="saving() || !canPreview()"
+    (click)="saveAs()">
+    <mat-icon>content_copy</mat-icon>
+    Enregistrer sous
+  </button>
 </mat-toolbar>
 
 @if (saveErrors().length) {
@@ -31,6 +40,26 @@
     </div>
   </div>
 }
+
+<section class="fb-start">
+  <h2 class="fb-col__title">Template</h2>
+
+  <div class="fb-start__actions">
+    <mat-form-field appearance="outline" class="fb-start__select">
+      <mat-label>Sélectionner un template</mat-label>
+      <mat-select (valueChange)="loadExisting($event)">
+        @for (form of existingForms(); track form.id) {
+          <mat-option [value]="form.id">{{ form.title }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <button mat-stroked-button type="button" (click)="state.reset()">
+      <mat-icon>restart_alt</mat-icon>
+      Repartir de zéro
+    </button>
+  </div>
+</section>
 
 <div class="fb-layout">
   <!-- ── Colonne 1 : palette ────────────────────────────────────────────────── -->
@@ -49,23 +78,6 @@
         </button>
       }
     </div>
-
-    <mat-divider />
-
-    <h2 class="fb-col__title">Partir d'un existant</h2>
-    <mat-form-field appearance="outline" class="fb-full">
-      <mat-label>Formulaire</mat-label>
-      <mat-select (valueChange)="loadExisting($event)">
-        @for (form of existingForms(); track form.id) {
-          <mat-option [value]="form.id">{{ form.title }}</mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
-
-    <button mat-stroked-button type="button" class="fb-full" (click)="state.reset()">
-      <mat-icon>restart_alt</mat-icon>
-      Repartir de zéro
-    </button>
   </aside>
 
   <!-- ── Colonne 2 : structure + aperçu ─────────────────────────────────────── -->

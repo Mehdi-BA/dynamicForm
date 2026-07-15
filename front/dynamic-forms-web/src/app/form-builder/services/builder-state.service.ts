@@ -259,6 +259,7 @@ export class BuilderStateService {
     const needsOptions = field.type === 'select' || field.type === 'radio';
     const isContainer = field.type === 'group' || field.type === 'array';
     const needsLookup = field.type === 'autocomplete';
+    const supportsResultMapping = field.type === 'select' || field.type === 'autocomplete';
 
     if (needsOptions) {
       field.options ??= [
@@ -289,6 +290,16 @@ export class BuilderStateService {
 
     if (!needsLookup) {
       delete field.lookupSource;
+      delete field.lookupUrl;
+      delete field.lookupKeyField;
+      delete field.lookupValueField;
+      delete field.lookupQueryParam;
+    } else {
+      field.lookupQueryParam ??= 'q';
+    }
+
+    if (!supportsResultMapping) {
+      delete field.resultMappings;
     }
   }
 
@@ -330,6 +341,12 @@ export class BuilderStateService {
         if (!out.hint) delete out.hint;
         if (!out.placeholder) delete out.placeholder;
         if (!out.visibleIf) delete out.visibleIf;
+        if (!out.lookupSource) delete out.lookupSource;
+        if (!out.lookupUrl) delete out.lookupUrl;
+        if (!out.lookupKeyField) delete out.lookupKeyField;
+        if (!out.lookupValueField) delete out.lookupValueField;
+        if (!out.lookupQueryParam || out.lookupQueryParam === 'q') delete out.lookupQueryParam;
+        if (!out.resultMappings?.length) delete out.resultMappings;
         if (out.fields?.length) {
           out.fields = pruneFields(out.fields);
         } else {

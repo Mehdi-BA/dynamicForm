@@ -39,6 +39,24 @@ public sealed class FieldSchema
     /// <summary>Clé de lookup distant (autocomplete) : appelle GET /api/lookup/{LookupSource}?q=</summary>
     public string? LookupSource { get; set; }
 
+    /// <summary>URL de recherche pour un autocomplete distant (ex: /api/referentials/pays/search).</summary>
+    public string? LookupUrl { get; set; }
+
+    /// <summary>Nom de la propriété contenant la clé dans la réponse API (ex: key, id, code).</summary>
+    public string? LookupKeyField { get; set; }
+
+    /// <summary>Nom de la propriété contenant le libellé dans la réponse API (ex: value, label, name).</summary>
+    public string? LookupValueField { get; set; }
+
+    /// <summary>Nom du paramètre query string utilisé pour la recherche (par défaut: q).</summary>
+    public string? LookupQueryParam { get; set; }
+
+    /// <summary>
+    /// Mapping de champs à remplir depuis le résultat sélectionné (autocomplete/select).
+    /// Exemple: sourceField="address.city" -> targetField="adresse.ville".
+    /// </summary>
+    public List<ResultMappingSchema>? ResultMappings { get; set; }
+
     /// <summary>Condition d'affichage. Le champ masqué est désactivé : exclu de la valeur et de la validation.</summary>
     public ConditionSchema? VisibleIf { get; set; }
 
@@ -93,4 +111,16 @@ public sealed class OptionSchema
 {
     public object? Value { get; set; }
     public string Label { get; set; } = string.Empty;
+
+    /// <summary>Données additionnelles optionnelles pour les mappings depuis un select.</summary>
+    public Dictionary<string, object?>? Data { get; set; }
+}
+
+public sealed class ResultMappingSchema
+{
+    /// <summary>Chemin de la valeur dans l'objet résultat sélectionné (value, label, data.code...).</summary>
+    public string SourceField { get; set; } = string.Empty;
+
+    /// <summary>Chemin du contrôle cible dans le formulaire (notation pointée).</summary>
+    public string TargetField { get; set; } = string.Empty;
 }

@@ -1,6 +1,8 @@
 namespace DynamicForms.Api.Services;
 
 public sealed record LookupItem(string Value, string Label);
+public sealed record ReferentialSource(string Name, int Count);
+public sealed record ReferentialItem(string Key, string Value);
 
 /// <summary>
 /// Données de référence servies aux champs "autocomplete".
@@ -49,6 +51,12 @@ public sealed class LookupService
     /// <summary>Noms des sources disponibles — le form builder les propose dans une liste.</summary>
     public IReadOnlyList<string> SourceNames() => [.. Sources.Keys.Order()];
 
+    /// <summary>Métadonnées des référentiels key/value disponibles.</summary>
+    public IReadOnlyList<ReferentialSource> SourceDetails() =>
+        [.. Sources
+            .OrderBy(kvp => kvp.Key, StringComparer.CurrentCulture)
+            .Select(kvp => new ReferentialSource(kvp.Key, kvp.Value.Length))];
+
     /// <summary>
     /// Recherche insensible à la casse et aux accents sur le libellé.
     /// Renvoie une liste vide si la source est inconnue — le front dégrade proprement.
@@ -74,6 +82,17 @@ public sealed class LookupService
         Sources.TryGetValue(source, out var items)
             ? items.FirstOrDefault(i => string.Equals(i.Value, value, StringComparison.OrdinalIgnoreCase))
             : null;
+
+    /// <summary>Projection key/value d'une recherche lookup.</summary>
+    public IReadOnlyList<ReferentialItem> SearchReferential(string source, string? q, int take = 20) =>
+        [.. Search(source, q, take).Select(i => new ReferentialItem(i.Value, i.Label))];
+
+    /// <summary>Projection key/value d'une résolution lookup.</summary>
+    public ReferentialItem? ResolveReferential(string source, string key)
+    {
+        var item = Resolve(source, key);
+        return item is null ? null : new ReferentialItem(item.Value, item.Label);
+    }
 
     private static string Normalize(string input)
     {

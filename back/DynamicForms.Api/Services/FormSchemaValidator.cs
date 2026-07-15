@@ -86,8 +86,51 @@ public sealed class FormSchemaValidator
             if (field.Type is "select" or "radio" && (field.Options is null || field.Options.Count == 0))
                 errors.Add($"Le champ « {here} » est de type « {field.Type} » mais n'a aucune option.");
 
-            if (field.Type == "autocomplete" && string.IsNullOrWhiteSpace(field.LookupSource))
-                errors.Add($"Le champ « {here} » est de type « autocomplete » mais n'a pas de source de lookup.");
+            if (field.Type == "autocomplete")
+            {
+                var hasLookupSource = !string.IsNullOrWhiteSpace(field.LookupSource);
+                var hasLookupUrl = !string.IsNullOrWhiteSpace(field.LookupUrl);
+
+                if (!hasLookupSource && !hasLookupUrl)
+                {
+                    errors.Add($"Le champ « {here} » est de type « autocomplete » mais n'a ni source ni URL.");
+                }
+
+                if (hasLookupUrl)
+                {
+                    if (string.IsNullOrWhiteSpace(field.LookupKeyField))
+                        errors.Add($"Le champ « {here} » définit lookupUrl mais pas lookupKeyField.");
+
+                    if (string.IsNullOrWhiteSpace(field.LookupValueField))
+                        errors.Add($"Le champ « {here} » définit lookupUrl mais pas lookupValueField.");
+                }
+            }
+
+            if (field.ResultMappings is { Count: > 0 })
+            {
+                if (field.Type is not "autocomplete" and not "select")
+                {
+                    errors.Add($"Le champ « {here} » définit resultMappings mais son type ne le supporte pas.");
+                }
+
+                foreach (var mapping in field.ResultMappings)
+                {
+                    if (string.IsNullOrWhiteSpace(mapping.SourceField))
+                        errors.Add($"Le champ « {here} » a un mapping sans sourceField.");
+
+                    if (string.IsNullOrWhiteSpace(mapping.TargetField))
+                    {
+                        errors.Add($"Le champ « {here} » a un mapping sans targetField.");
+                        continue;
+                    }
+
+                    if (!knownPaths.Contains(mapping.TargetField))
+                        errors.Add($"Le mapping du champ « {here} » cible « {mapping.TargetField} », qui n'existe pas.");
+
+                    if (string.Equals(mapping.TargetField, here, StringComparison.OrdinalIgnoreCase))
+                        errors.Add($"Le mapping du champ « {here} » ne peut pas cibler le champ lui-même.");
+                }
+            }
 
             ValidateCondition(field.VisibleIf, here, knownPaths, errors);
         }

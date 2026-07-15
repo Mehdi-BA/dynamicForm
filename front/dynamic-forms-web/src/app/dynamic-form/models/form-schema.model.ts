@@ -44,6 +44,24 @@ export interface FieldSchema {
   /** Clé de lookup distant pour les champs autocomplete. */
   lookupSource?: string;
 
+  /** URL de recherche pour un autocomplete distant (ex: /api/referentials/pays/search). */
+  lookupUrl?: string;
+
+  /** Nom de la propriété qui contient la clé dans la réponse API (ex: key, id, code). */
+  lookupKeyField?: string;
+
+  /** Nom de la propriété qui contient le libellé dans la réponse API (ex: value, label, name). */
+  lookupValueField?: string;
+
+  /** Nom du paramètre query string utilisé pour la recherche (par défaut: q). */
+  lookupQueryParam?: string;
+
+  /**
+   * Mapping de champs à remplir depuis le résultat sélectionné.
+   * Exemple: sourceField="address.city" -> targetField="adresse.ville".
+   */
+  resultMappings?: ResultMappingSchema[];
+
   /** Condition d'affichage. Un champ masqué est désactivé : hors valeur, hors validation. */
   visibleIf?: ConditionSchema;
 
@@ -94,4 +112,13 @@ export type ConditionOp =
 export interface OptionSchema {
   value: unknown;
   label: string;
+  /** Données additionnelles d'une option select, réutilisables dans resultMappings. */
+  data?: Record<string, unknown>;
+}
+
+export interface ResultMappingSchema {
+  /** Chemin de la valeur dans l'objet résultat sélectionné (value, label, data.code...). */
+  sourceField: string;
+  /** Chemin du contrôle cible dans le formulaire (notation pointée). */
+  targetField: string;
 }

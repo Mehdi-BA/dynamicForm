@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -13,8 +14,10 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { DynamicFormComponent } from '../dynamic-form/components/dynamic-form.component';
+import { FormSchema } from '../dynamic-form/models/form-schema.model';
 import { FormApiService, FormSummary } from '../dynamic-form/services/form-api.service';
 import { FieldPropertiesComponent } from './components/field-properties.component';
+import { SaveAsDialogComponent } from './components/save-as-dialog.component';
 import { FieldTreeComponent } from './components/field-tree.component';
 import { BuilderStateService, FIELD_TYPES } from './services/builder-state.service';
 
@@ -56,6 +59,7 @@ export class FormBuilderComponent {
   readonly state = inject(BuilderStateService);
   private readonly api = inject(FormApiService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   readonly fieldTypes = FIELD_TYPES;
 
@@ -95,13 +99,52 @@ export class FormBuilderComponent {
   save(): void {
     const schema = this.schema();
 
+    this.persistSchema(schema, `Formulaire « ${schema.title} » enregistré.`);
+  }
+
+  saveAs(): void {
+    const current = this.schema();
+    const title = `${current.title} copie`;
+    const id = this.slugify(title) || `${current.id}-copie`;
+
+    this.dialog
+      .open(SaveAsDialogComponent, {
+        data: { title, id },
+        width: '520px',
+        maxWidth: 'calc(100vw - 24px)',
+      })
+      .afterClosed()
+      .subscribe((result) => {
+        if (!result) {
+          return;
+        }
+
+        const schema = {
+          ...current,
+          id: result.id,
+          title: result.title,
+        };
+
+        this.persistSchema(schema, `Template « ${result.title} » créé.`, true);
+      });
+  }
+
+  private persistSchema(
+    schema: FormSchema,
+    successMessage: string,
+    reloadBuilder = false,
+  ): void {
+
     this.saving.set(true);
     this.saveErrors.set([]);
 
     this.api.saveSchema(schema).subscribe({
       next: () => {
         this.saving.set(false);
-        this.snackBar.open(`Formulaire « ${schema.title} » enregistré.`, 'OK', { duration: 3000 });
+        this.snackBar.open(successMessage, 'OK', { duration: 3000 });
+        if (reloadBuilder) {
+          this.state.load(schema);
+        }
         // Le nouveau formulaire doit apparaître dans la liste des existants.
         this.api.listForms().subscribe((forms) => this.existingForms.set(forms));
       },
@@ -114,6 +157,15 @@ export class FormBuilderComponent {
         this.saveErrors.set(errors.length ? errors : ["Échec de l'enregistrement."]);
       },
     });
+  }
+
+  private slugify(value: string): string {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
   }
 
   copyJson(): void {
