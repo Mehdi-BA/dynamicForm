@@ -65,6 +65,25 @@ public sealed class FormSchemaCatalog
                     new DataSourceFieldDefinition { Path = "value", Label = "Libellé pays" },
                 ],
             },
+            // Source « riche » : chaque résultat porte plusieurs champs, ce qui permet
+            // à l'autocomplete « rattachement » plus bas d'auto-remplir ville, secteur
+            // et matricule à la sélection d'un client (voir ResultMappings).
+            new DataSourceDefinition
+            {
+                Id = "clients",
+                Label = "Clients",
+                Url = "/api/clients/search",
+                QueryParam = "q",
+                ValueField = "id",
+                DisplayField = "raisonSociale",
+                AvailableFields =
+                [
+                    new DataSourceFieldDefinition { Path = "raisonSociale", Label = "Raison sociale" },
+                    new DataSourceFieldDefinition { Path = "ville", Label = "Ville" },
+                    new DataSourceFieldDefinition { Path = "secteur", Label = "Secteur" },
+                    new DataSourceFieldDefinition { Path = "matricule", Label = "Matricule fiscal" },
+                ],
+            },
         ],
         Fields =
         [
@@ -310,6 +329,26 @@ public sealed class FormSchemaCatalog
                         Cols = 4,
                         Validators = [new ValidatorSchema { Type = "email" }],
                     },
+                ],
+            },
+
+            // --- Autocomplete « riche » + auto-remplissage ---
+            // Rattacher la fiche à un client existant : à la sélection, la ville du client
+            // choisi remplit automatiquement « adresse.ville » (resultMappings). C'est la
+            // démonstration bout-en-bout du mapping de résultat, qu'une source key/value
+            // (pays) ne permet pas d'illustrer.
+            new FieldSchema
+            {
+                Type = "autocomplete",
+                Name = "rattachement",
+                Label = "Rattaché au client",
+                Placeholder = "Tapez pour rechercher un client…",
+                Hint = "Choisir un client remplit automatiquement la ville de l'adresse.",
+                DataSourceId = "clients",
+                Cols = 12,
+                ResultMappings =
+                [
+                    new ResultMappingSchema { SourceField = "ville", TargetField = "adresse.ville" },
                 ],
             },
 
