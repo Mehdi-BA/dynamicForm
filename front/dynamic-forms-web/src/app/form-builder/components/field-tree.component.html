@@ -1,0 +1,86 @@
+<div class="tree" cdkDropList (cdkDropListDropped)="onDrop($event)">
+  @for (field of fields(); track $index) {
+    <div class="node" cdkDrag [cdkDragData]="field">
+      <div class="node__placeholder" *cdkDragPlaceholder></div>
+
+      <div
+        class="node__row"
+        [class.node__row--selected]="state.isSelected(pathOf($index))"
+        (click)="state.select(pathOf($index))"
+        (keydown.enter)="state.select(pathOf($index))"
+        tabindex="0"
+        role="button">
+        <mat-icon class="node__handle" cdkDragHandle (click)="stop($event)">drag_indicator</mat-icon>
+        <mat-icon class="node__icon">{{ iconFor(field) }}</mat-icon>
+
+        <span class="node__text">
+          <span class="node__label">{{ field.label || field.name }}</span>
+          <span class="node__summary">{{ summaryOf(field) }}</span>
+        </span>
+
+        <span class="node__actions">
+          @if (isContainer(field)) {
+            <!--
+              Le menu est rendu dans un overlay, hors du @for : `$index` n'y est plus
+              celui de la ligne. On passe donc le chemin explicitement via matMenuTriggerData,
+              sinon le champ atterrit dans le mauvais conteneur.
+            -->
+            <button
+              mat-icon-button
+              type="button"
+              matTooltip="Ajouter un champ dedans"
+              [matMenuTriggerFor]="addMenu"
+              [matMenuTriggerData]="{ parentPath: pathOf($index) }"
+              (click)="stop($event)">
+              <mat-icon>add</mat-icon>
+            </button>
+          }
+
+          <button
+            mat-icon-button
+            type="button"
+            matTooltip="Dupliquer"
+            (click)="stop($event); state.duplicateField(pathOf($index))">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+
+          <button
+            mat-icon-button
+            type="button"
+            color="warn"
+            matTooltip="Supprimer"
+            (click)="stop($event); state.removeField(pathOf($index))">
+            <mat-icon>delete_outline</mat-icon>
+          </button>
+        </span>
+      </div>
+
+      <!-- Récursion : les sous-champs d'un group/array sont un arbre de plus. -->
+      @if (isContainer(field)) {
+        <div class="node__children">
+          @if (childrenOf(field); as children) {
+            <app-field-tree [fields]="children" [parentPath]="pathOf($index)" />
+          } @else {
+            <p class="node__empty">Conteneur vide — utilisez « + » pour ajouter un champ.</p>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!--
+  Un seul menu pour tout l'arbre, déclaré hors du @for. Le chemin du conteneur visé
+  arrive par matMenuTriggerData : à l'intérieur de l'overlay, `$index` ne désigne plus
+  la ligne cliquée, et le champ atterrirait dans le mauvais conteneur.
+-->
+<mat-menu #addMenu="matMenu">
+  <ng-template matMenuContent let-parentPath="parentPath">
+    @for (t of fieldTypes; track t.type) {
+      <button mat-menu-item type="button" (click)="state.addField(t.type, parentPath)">
+        <mat-icon>{{ t.icon }}</mat-icon>
+        <span>{{ t.label }}</span>
+      </button>
+    }
+  </ng-template>
+</mat-menu>

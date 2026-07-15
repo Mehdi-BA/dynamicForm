@@ -1,0 +1,236 @@
+<section class="props">
+  <!-- ── Général ──────────────────────────────────────────────────────────── -->
+  <h3 class="props__title">Champ</h3>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Type</mat-label>
+    <mat-select
+      [value]="field().type"
+      (valueChange)="onTypeChange($event)">
+      @for (t of fieldTypes; track t.type) {
+        <mat-option [value]="t.type">{{ t.label }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Nom technique</mat-label>
+    <input
+      matInput
+      [ngModel]="field().name"
+      (ngModelChange)="patch({ name: $event })"
+      placeholder="email" />
+    <mat-hint>La clé dans le JSON envoyé au serveur.</mat-hint>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Libellé</mat-label>
+    <input matInput [ngModel]="field().label" (ngModelChange)="patch({ label: $event })" />
+  </mat-form-field>
+
+  @if (!isContainer()) {
+    <mat-form-field appearance="outline">
+      <mat-label>Placeholder</mat-label>
+      <input
+        matInput
+        [ngModel]="field().placeholder"
+        (ngModelChange)="patch({ placeholder: $event })" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Aide sous le champ</mat-label>
+      <input matInput [ngModel]="field().hint" (ngModelChange)="patch({ hint: $event })" />
+    </mat-form-field>
+  }
+
+  <label class="props__slider-label" for="cols">
+    Largeur : {{ field().cols ?? 12 }} / 12 colonnes
+  </label>
+  <mat-slider id="cols" min="1" max="12" step="1" discrete>
+    <input matSliderThumb [value]="field().cols ?? 12" (valueChange)="patch({ cols: $event })" />
+  </mat-slider>
+
+  <!-- ── Autocomplete ─────────────────────────────────────────────────────── -->
+  @if (field().type === 'autocomplete') {
+    <mat-form-field appearance="outline">
+      <mat-label>Source de données</mat-label>
+      <mat-select
+        [value]="field().lookupSource"
+        (valueChange)="patch({ lookupSource: $event })">
+        @for (source of lookupSources(); track source) {
+          <mat-option [value]="source">{{ source }}</mat-option>
+        }
+      </mat-select>
+      <mat-hint>Servie par GET /api/lookup/&lbrace;source&rbrace;</mat-hint>
+    </mat-form-field>
+  }
+
+  <!-- ── Liste répétable ──────────────────────────────────────────────────── -->
+  @if (field().type === 'array') {
+    <mat-form-field appearance="outline">
+      <mat-label>Libellé du bouton d'ajout</mat-label>
+      <input
+        matInput
+        [ngModel]="field().addLabel"
+        (ngModelChange)="patch({ addLabel: $event })" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Lignes à l'ouverture</mat-label>
+      <input
+        matInput
+        type="number"
+        min="0"
+        [ngModel]="field().initialItems"
+        (ngModelChange)="patch({ initialItems: +$event })" />
+    </mat-form-field>
+  }
+
+  <!-- ── Options (select / radio) ─────────────────────────────────────────── -->
+  @if (hasOptions()) {
+    <mat-divider />
+    <h3 class="props__title">Options</h3>
+
+    @for (option of field().options ?? []; track $index) {
+      <div class="props__option">
+        <mat-form-field appearance="outline" class="props__option-field">
+          <mat-label>Libellé</mat-label>
+          <input
+            matInput
+            [ngModel]="option.label"
+            (ngModelChange)="updateOption($index, { label: $event })" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="props__option-field">
+          <mat-label>Valeur</mat-label>
+          <input
+            matInput
+            [ngModel]="option.value"
+            (ngModelChange)="updateOption($index, { value: $event })" />
+        </mat-form-field>
+
+        <button
+          mat-icon-button
+          type="button"
+          color="warn"
+          [attr.aria-label]="'Supprimer l\'option ' + ($index + 1)"
+          (click)="removeOption($index)">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    }
+
+    <button mat-stroked-button type="button" (click)="addOption()">
+      <mat-icon>add</mat-icon>
+      Ajouter une option
+    </button>
+  }
+
+  <!-- ── Validateurs ──────────────────────────────────────────────────────── -->
+  @if (!isContainer()) {
+    <mat-divider />
+    <h3 class="props__title">Validation</h3>
+
+    @for (v of availableValidators(); track v.type) {
+      <div class="props__validator">
+        <mat-checkbox
+          [checked]="hasValidator(v.type)"
+          (change)="toggleValidator(v.type, $event.checked)">
+          {{ v.label }}
+        </mat-checkbox>
+
+        @if (v.arg && hasValidator(v.type)) {
+          <mat-form-field appearance="outline" class="props__validator-arg">
+            <input
+              matInput
+              [type]="v.arg === 'number' ? 'number' : 'text'"
+              [ngModel]="validatorValue(v.type)"
+              (ngModelChange)="setValidatorValue(v.type, $event)"
+              [placeholder]="v.arg === 'number' ? '0' : 'Expression'" />
+          </mat-form-field>
+        }
+      </div>
+    }
+  }
+
+  <!-- ── Condition d'affichage ────────────────────────────────────────────── -->
+  <mat-divider />
+  <h3 class="props__title">Affichage conditionnel</h3>
+
+  @if (conditionTargets().length === 0) {
+    <p class="props__note">
+      Aucun autre champ à observer. Ajoutez d'abord un champ dont dépendra celui-ci.
+    </p>
+  } @else {
+    <mat-checkbox
+      [checked]="conditionEnabled()"
+      (change)="toggleCondition($event.checked)">
+      N'afficher ce champ que sous condition
+    </mat-checkbox>
+
+    @if (conditionEnabled()) {
+      @if (conditionRules().length > 1) {
+        <mat-form-field appearance="outline" class="props__mode">
+          <mat-label>Les règles doivent</mat-label>
+          <mat-select [value]="conditionMode()" (valueChange)="setMode($event)">
+            <mat-option value="and">toutes être vraies (ET)</mat-option>
+            <mat-option value="or">au moins une être vraie (OU)</mat-option>
+          </mat-select>
+        </mat-form-field>
+      }
+
+      @for (rule of conditionRules(); track $index) {
+        <div class="props__rule">
+          <div class="props__rule-head">
+            <span class="props__rule-index">Règle {{ $index + 1 }}</span>
+            <button
+              mat-icon-button
+              type="button"
+              color="warn"
+              [attr.aria-label]="'Supprimer la règle ' + ($index + 1)"
+              (click)="removeRule($index)">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Si le champ</mat-label>
+            <mat-select [value]="rule.field" (valueChange)="setRule($index, { field: $event })">
+              @for (target of conditionTargets(); track target.path) {
+                <mat-option [value]="target.path">{{ target.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Condition</mat-label>
+            <mat-select [value]="rule.op" (valueChange)="setRule($index, { op: $event })">
+              @for (o of operators; track o.op) {
+                <mat-option [value]="o.op">{{ o.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          @if (ruleNeedsValue(rule)) {
+            <mat-form-field appearance="outline">
+              <mat-label>Valeur</mat-label>
+              <input
+                matInput
+                [ngModel]="rule.value"
+                (ngModelChange)="setRule($index, { value: $event })" />
+            </mat-form-field>
+          }
+        </div>
+      }
+
+      <button mat-stroked-button type="button" (click)="addRule()">
+        <mat-icon>add</mat-icon>
+        Ajouter une règle
+      </button>
+
+      <p class="props__note">
+        Un champ masqué est désactivé : il sort du payload et ne bloque plus la validation.
+      </p>
+    }
+  }
+</section>

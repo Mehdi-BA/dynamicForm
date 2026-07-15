@@ -1,0 +1,70 @@
+:host {
+  display: block;
+}
+
+.df-card__header {
+  margin-bottom: 1.5rem;
+}
+
+.df-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  // Voir dynamic-field.component.scss : le sous-texte de Material est hors du flux,
+  // la gouttière verticale évite qu'il chevauche la ligne suivante.
+  gap: 0.5rem 1rem;
+  align-items: start;
+}
+
+.df-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+// ── Panneau de debug ──────────────────────────────────────────────────────────
+
+.df-debug {
+  margin-top: 1.5rem;
+}
+
+.df-debug__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+}
+
+.df-debug__status {
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #e6f4ea;
+  color: #137333;
+}
+
+.df-debug__status--invalid {
+  background: #fce8e6;
+  color: #c5221f;
+}
+
+.df-debug__json {
+  margin: 0;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+
+@media (max-width: 700px) {
+  .df-grid > * {
+    grid-column: span 12 !important;
+  }
+}

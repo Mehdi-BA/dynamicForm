@@ -1,0 +1,161 @@
+.fb-toolbar__title {
+  font-weight: 600;
+}
+
+.fb-toolbar__spacer {
+  flex: 1;
+}
+
+.fb-toolbar__save {
+  margin-left: 0.75rem;
+}
+
+// ── Erreurs de validation renvoyées par le back ───────────────────────────────
+
+.fb-errors {
+  display: flex;
+  gap: 0.75rem;
+  margin: 1rem;
+  padding: 1rem;
+  border: 1px solid #f2b8b5;
+  border-radius: 8px;
+  background: #fce8e6;
+  color: #8c1d18;
+  font-size: 0.875rem;
+
+  ul {
+    margin: 0.375rem 0 0;
+    padding-left: 1.25rem;
+  }
+}
+
+// ── Trois colonnes ────────────────────────────────────────────────────────────
+
+.fb-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 340px;
+  gap: 1rem;
+  padding: 1rem;
+  align-items: start;
+}
+
+.fb-col {
+  border: 1px solid var(--mat-sys-outline-variant, rgb(0 0 0 / 0.12));
+  border-radius: 12px;
+  background: var(--mat-sys-surface-container-lowest, #fff);
+}
+
+.fb-col--palette,
+.fb-col--props {
+  padding: 1rem;
+  // Les colonnes latérales suivent le scroll : on garde la palette et les propriétés
+  // à portée même sur un formulaire long.
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+.fb-col__title {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mat-sys-on-surface-variant, rgb(0 0 0 / 0.6));
+
+  &:not(:first-child) {
+    margin-top: 1rem;
+  }
+}
+
+// ── Palette ───────────────────────────────────────────────────────────────────
+
+.fb-palette {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 1rem;
+}
+
+.fb-palette__item {
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+.fb-full {
+  width: 100%;
+}
+
+// ── Canvas ────────────────────────────────────────────────────────────────────
+
+.fb-tab {
+  padding: 1.25rem;
+}
+
+.fb-form-props {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.fb-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3rem 1rem;
+  color: var(--mat-sys-on-surface-variant, rgb(0 0 0 / 0.6));
+  text-align: center;
+
+  mat-icon {
+    font-size: 2.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    opacity: 0.5;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.875rem;
+  }
+}
+
+.fb-json {
+  margin: 1rem 0 0;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+
+.fb-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--mat-sys-on-surface-variant, rgb(0 0 0 / 0.6));
+}
+
+// ── Écrans étroits : les colonnes s'empilent ──────────────────────────────────
+
+@media (max-width: 1100px) {
+  .fb-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .fb-col--palette,
+  .fb-col--props {
+    position: static;
+    max-height: none;
+  }
+
+  .fb-palette {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}

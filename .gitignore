@@ -1,0 +1,22 @@
+# ── Node / Angular ───────────────────────────────────────────────
+node_modules/
+front/dynamic-forms-web/dist/
+front/dynamic-forms-web/.angular/
+front/dynamic-forms-web/.nx/
+*.log
+npm-debug.log*
+
+# ── .NET ─────────────────────────────────────────────────────────
+bin/
+obj/
+*.user
+
+# ── IDE ──────────────────────────────────────────────────────────
+.vs/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ── OS ───────────────────────────────────────────────────────────
+Thumbs.db
+.DS_Store

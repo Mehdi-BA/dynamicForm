@@ -1,0 +1,49 @@
+<form [formGroup]="form()" (ngSubmit)="onSubmit()" novalidate>
+  <mat-card appearance="outlined" class="df-card">
+    <mat-card-header class="df-card__header">
+      <mat-card-title>{{ schema().title }}</mat-card-title>
+      @if (schema().description) {
+        <mat-card-subtitle>{{ schema().description }}</mat-card-subtitle>
+      }
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="df-grid">
+        @for (field of schema().fields; track field.name) {
+          <app-dynamic-field
+            [field]="field"
+            [parent]="form()"
+            [rootForm]="form()"
+            [style.grid-column]="'span ' + (field.cols ?? 12)" />
+        }
+      </div>
+    </mat-card-content>
+
+    <mat-card-actions class="df-card__actions">
+      <button mat-button type="button" (click)="onReset()">Réinitialiser</button>
+      <button mat-flat-button type="submit">
+        {{ schema().submitLabel ?? 'Enregistrer' }}
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  @if (debug()) {
+    <mat-card appearance="outlined" class="df-debug">
+      <mat-card-header>
+        <mat-card-title class="df-debug__title">
+          <mat-icon inline>data_object</mat-icon>
+          Valeur du formulaire
+          <span class="df-debug__status" [class.df-debug__status--invalid]="form().invalid">
+            {{ form().invalid ? 'invalide' : 'valide' }}
+          </span>
+        </mat-card-title>
+        <mat-card-subtitle>
+          Les champs masqués sont désactivés : ils n'apparaissent pas ici.
+        </mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <pre class="df-debug__json">{{ currentValue() | json }}</pre>
+      </mat-card-content>
+    </mat-card>
+  }
+</form>

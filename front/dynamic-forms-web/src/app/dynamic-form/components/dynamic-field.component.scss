@@ -1,0 +1,117 @@
+:host {
+  display: block;
+  min-width: 0; // sans ça un champ large déborde de sa cellule de grille
+}
+
+.df-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  // Material affiche hint et error en position absolue sous le champ, hors du flux :
+  // sans gouttière verticale, ce sous-texte chevauche la ligne suivante de la grille.
+  gap: 0.5rem 1rem;
+  align-items: start;
+}
+
+.df-field {
+  width: 100%;
+}
+
+.df-field--checkbox,
+.df-field--radio {
+  padding: 0.75rem 0 1.25rem;
+}
+
+.df-field__label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--mat-sys-on-surface-variant, rgb(0 0 0 / 0.6));
+}
+
+.df-field__hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: var(--mat-sys-on-surface-variant, rgb(0 0 0 / 0.6));
+}
+
+.df-field__error {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: var(--mat-sys-error, #b3261e);
+}
+
+.df-radio-group {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+// ── Conteneurs (group / array) ────────────────────────────────────────────────
+
+.df-group,
+.df-array {
+  margin: 0 0 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--mat-sys-outline-variant, rgb(0 0 0 / 0.12));
+  border-radius: 12px;
+  background: var(--mat-sys-surface-container-lowest, #fff);
+}
+
+.df-group__legend {
+  padding: 0 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--mat-sys-primary, #1976d2);
+}
+
+// ── Lignes d'un FormArray ─────────────────────────────────────────────────────
+
+.df-array__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem 0 0;
+  border-top: 1px dashed var(--mat-sys-outline-variant, rgb(0 0 0 / 0.12));
+
+  &:first-of-type {
+    border-top: none;
+    padding-top: 0;
+  }
+}
+
+.df-array__fields {
+  flex: 1;
+  min-width: 0;
+}
+
+.df-array__remove {
+  margin-top: 0.5rem;
+  flex: none;
+}
+
+.df-array__empty {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  font-style: italic;
+  color: var(--mat-sys-on-surface-variant, rgb(0 0 0 / 0.6));
+}
+
+// ── Mobile : la grille 12 colonnes s'aplatit ─────────────────────────────────
+
+@media (max-width: 700px) {
+  .df-grid > * {
+    grid-column: span 12 !important;
+  }
+
+  .df-array__row {
+    flex-direction: column;
+  }
+
+  .df-array__remove {
+    align-self: flex-end;
+    margin-top: 0;
+  }
+}

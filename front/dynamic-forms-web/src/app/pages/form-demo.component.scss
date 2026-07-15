@@ -1,0 +1,39 @@
+.demo-toolbar__title {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.demo-toolbar__spacer {
+  flex: 1;
+}
+
+.demo-toolbar__hint {
+  font-size: 0.8125rem;
+  opacity: 0.85;
+}
+
+.demo-main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+}
+
+.demo-switch {
+  margin-bottom: 1.5rem;
+}
+
+.demo-error {
+  border-color: #f2b8b5;
+  background: #fce8e6;
+  color: #8c1d18;
+}
+
+@media (max-width: 700px) {
+  .demo-toolbar__hint {
+    display: none;
+  }
+
+  .demo-main {
+    padding: 1rem 0.75rem 3rem;
+  }
+}

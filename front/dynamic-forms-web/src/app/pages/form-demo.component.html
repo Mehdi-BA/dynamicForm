@@ -1,0 +1,39 @@
+<mat-toolbar color="primary" class="demo-toolbar">
+  <span class="demo-toolbar__title">Dynamic Forms</span>
+  <span class="demo-toolbar__spacer"></span>
+  <span class="demo-toolbar__hint">Schéma JSON &rarr; formulaire Angular Material</span>
+  <button mat-button routerLink="/builder">
+    <mat-icon>build</mat-icon>
+    Form Builder
+  </button>
+</mat-toolbar>
+
+<main class="demo-main">
+  @if (error(); as message) {
+    <mat-card appearance="outlined" class="demo-error">
+      <mat-card-content>{{ message }}</mat-card-content>
+    </mat-card>
+  } @else {
+    @if (forms().length > 1) {
+      <mat-button-toggle-group
+        class="demo-switch"
+        [value]="selectedId()"
+        (change)="onSelect($event.value)">
+        @for (form of forms(); track form.id) {
+          <mat-button-toggle [value]="form.id">{{ form.title }}</mat-button-toggle>
+        }
+      </mat-button-toggle-group>
+    }
+
+    @if (loading()) {
+      <mat-progress-bar mode="indeterminate" />
+    }
+
+    @if (schema(); as s) {
+      <app-dynamic-form
+        [schema]="s"
+        [debug]="true"
+        (submitted)="onSubmitted($event)" />
+    }
+  }
+</main>

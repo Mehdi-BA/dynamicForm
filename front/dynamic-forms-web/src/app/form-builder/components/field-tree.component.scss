@@ -1,0 +1,125 @@
+:host {
+  display: block;
+}
+
+.tree {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-height: 0.5rem; // garde une cible de drop même quand la liste est vide
+}
+
+.node {
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container-lowest, #fff);
+
+  &.cdk-drag-preview {
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  }
+
+  &.cdk-drag-placeholder {
+    opacity: 0;
+  }
+}
+
+.node__placeholder {
+  height: 2.75rem;
+  border: 2px dashed var(--mat-sys-primary, #1976d2);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mat-sys-primary, #1976d2) 6%, transparent);
+}
+
+.node__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.375rem 0.375rem 0.25rem;
+  border: 1px solid var(--mat-sys-outline-variant, rgb(0 0 0 / 0.12));
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  &:hover {
+    background: var(--mat-sys-surface-container, rgb(0 0 0 / 0.03));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary, #1976d2);
+    outline-offset: 1px;
+  }
+}
+
+.node__row--selected {
+  border-color: var(--mat-sys-primary, #1976d2);
+  background: color-mix(in srgb, var(--mat-sys-primary, #1976d2) 8%, transparent);
+}
+
+.node__handle {
+  cursor: grab;
+  color: var(--mat-sys-outline, rgb(0 0 0 / 0.38));
+  flex: none;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.node__icon {
+  flex: none;
+  color: var(--mat-sys-primary, #1976d2);
+}
+
+.node__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  line-height: 1.3;
+}
+
+.node__label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node__summary {
+  font-size: 0.6875rem;
+  color: var(--mat-sys-on-surface-variant, rgb(0 0 0 / 0.6));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node__actions {
+  display: flex;
+  align-items: center;
+  flex: none;
+  // Les actions n'apparaissent qu'au survol : la liste reste lisible.
+  opacity: 0;
+  transition: opacity 0.15s ease;
+
+  .node__row:hover &,
+  .node__row:focus-within &,
+  .node__row--selected & {
+    opacity: 1;
+  }
+}
+
+// ── Sous-champs d'un conteneur ────────────────────────────────────────────────
+
+.node__children {
+  margin: 0.375rem 0 0.25rem 1.5rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--mat-sys-outline-variant, rgb(0 0 0 / 0.12));
+}
+
+.node__empty {
+  margin: 0;
+  padding: 0.5rem 0;
+  font-size: 0.75rem;
+  font-style: italic;
+  color: var(--mat-sys-on-surface-variant, rgb(0 0 0 / 0.6));
+}

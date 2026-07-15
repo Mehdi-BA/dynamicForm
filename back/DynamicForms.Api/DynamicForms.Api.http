@@ -1,0 +1,6 @@
+@DynamicForms.Api_HostAddress = http://localhost:5244
+
+GET {{DynamicForms.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
