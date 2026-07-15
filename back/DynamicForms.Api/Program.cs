@@ -15,7 +15,7 @@ builder.Services
     });
 
 builder.Services.AddSingleton<FormSchemaCatalog>();
-builder.Services.AddSingleton<LookupService>();
+builder.Services.AddSingleton<ResourceCatalog>();
 builder.Services.AddSingleton<FormSchemaValidator>();
 
 builder.Services.AddOpenApi();

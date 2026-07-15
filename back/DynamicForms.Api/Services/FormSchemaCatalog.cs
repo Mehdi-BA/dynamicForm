@@ -238,13 +238,16 @@ public sealed class FormSchemaCatalog
                     },
                     new FieldSchema
                     {
+                        // Autocomplete alimenté par la ressource « clients » : à la sélection d'un
+                        // client, sa ville auto-remplit le champ « ville » ci-dessus (via Fill).
                         Type = "autocomplete",
-                        Name = "pays",
-                        Label = "Pays",
-                        Placeholder = "Tapez pour rechercher…",
-                        LookupSource = "pays",
+                        Name = "rattachement",
+                        Label = "Rattaché au client",
+                        Placeholder = "Tapez pour rechercher un client…",
+                        Hint = "Choisir un client remplit automatiquement la ville.",
+                        ResourceId = "clients",
+                        Fill = [new FillRuleSchema { From = "ville", To = "adresse.ville" }],
                         Cols = 12,
-                        Validators = [new ValidatorSchema { Type = "required" }],
                     },
                 ],
             },

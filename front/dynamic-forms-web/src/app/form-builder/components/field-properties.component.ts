@@ -8,12 +8,15 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSliderModule } from '@angular/material/slider';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   ConditionOp,
   ConditionSchema,
   FieldSchema,
   FieldType,
+  FillRule,
   OptionSchema,
+  Resource,
   ValidatorSchema,
 } from '../../dynamic-form/models/form-schema.model';
 import { BuilderStateService, FIELD_TYPES, FieldPath } from '../services/builder-state.service';
@@ -72,6 +75,7 @@ const OPERATORS: { op: ConditionOp; label: string; needsValue: boolean }[] = [
     MatIconModule,
     MatDividerModule,
     MatSliderModule,
+    MatTooltipModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './field-properties.component.html',
@@ -81,8 +85,8 @@ export class FieldPropertiesComponent {
   readonly path = input.required<FieldPath>();
   readonly field = input.required<FieldSchema>();
 
-  /** Sources de lookup proposées pour les champs autocomplete. */
-  readonly lookupSources = input<string[]>([]);
+  /** Ressources (data sources) proposées pour les champs autocomplete. */
+  readonly resources = input<Resource[]>([]);
 
   private readonly state = inject(BuilderStateService);
 
@@ -219,6 +223,42 @@ export class FieldPropertiesComponent {
     const options = [...(this.field().options ?? [])];
     options.splice(index, 1);
     this.patch({ options });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Autocomplete : ressource + auto-remplissage
+  // ---------------------------------------------------------------------------
+
+  /** La ressource actuellement choisie sur le champ, résolue depuis la liste. */
+  readonly selectedResource = computed<Resource | null>(() => {
+    const id = this.field().resourceId;
+    return id ? (this.resources().find((r) => r.id === id) ?? null) : null;
+  });
+
+  /** Champs extra de la ressource choisie : les `from` possibles pour une règle d'auto-remplissage. */
+  readonly resourceExtraFields = computed<string[]>(
+    () => this.selectedResource()?.mapping.extraFields ?? [],
+  );
+
+  addFillRule(): void {
+    const from = this.resourceExtraFields()[0] ?? '';
+    const to = this.conditionTargets()[0]?.path ?? '';
+    this.patch({ fill: [...(this.field().fill ?? []), { from, to }] });
+  }
+
+  updateFillRule(index: number, patch: Partial<FillRule>): void {
+    const rules = [...(this.field().fill ?? [])];
+    if (!rules[index]) {
+      return;
+    }
+    rules[index] = { ...rules[index], ...patch };
+    this.patch({ fill: rules });
+  }
+
+  removeFillRule(index: number): void {
+    const rules = [...(this.field().fill ?? [])];
+    rules.splice(index, 1);
+    this.patch({ fill: rules });
   }
 
   // ---------------------------------------------------------------------------

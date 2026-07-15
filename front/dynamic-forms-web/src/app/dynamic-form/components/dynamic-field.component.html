@@ -127,8 +127,11 @@
           [placeholder]="field().placeholder ?? ''"
           [required]="isRequired()" />
 
-        <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayLookup">
-          @for (item of visibleLookupItems(); track item.value) {
+        <mat-autocomplete
+          #auto="matAutocomplete"
+          [displayWith]="displayOption"
+          (optionSelected)="onOptionSelected($event)">
+          @for (item of visibleOptions(); track item.value) {
             <mat-option [value]="item.value">{{ item.label }}</mat-option>
           }
         </mat-autocomplete>

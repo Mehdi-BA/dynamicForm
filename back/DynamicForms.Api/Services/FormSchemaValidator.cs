@@ -86,8 +86,18 @@ public sealed class FormSchemaValidator
             if (field.Type is "select" or "radio" && (field.Options is null || field.Options.Count == 0))
                 errors.Add($"Le champ « {here} » est de type « {field.Type} » mais n'a aucune option.");
 
-            if (field.Type == "autocomplete" && string.IsNullOrWhiteSpace(field.LookupSource))
-                errors.Add($"Le champ « {here} » est de type « autocomplete » mais n'a pas de source de lookup.");
+            if (field.Type == "autocomplete" && string.IsNullOrWhiteSpace(field.ResourceId))
+                errors.Add($"Le champ « {here} » est de type « autocomplete » mais ne référence aucune ressource.");
+
+            // Une règle d'auto-remplissage qui cible un champ inexistant n'écrirait jamais rien.
+            if (field.Fill is not null)
+            {
+                foreach (var rule in field.Fill)
+                {
+                    if (!string.IsNullOrWhiteSpace(rule.To) && !knownPaths.Contains(rule.To))
+                        errors.Add($"Le champ « {here} » a une règle d'auto-remplissage qui cible « {rule.To} », qui n'existe pas.");
+                }
+            }
 
             ValidateCondition(field.VisibleIf, here, knownPaths, errors);
         }

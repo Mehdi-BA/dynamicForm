@@ -36,8 +36,11 @@ public sealed class FieldSchema
     /// <summary>Options statiques (select, radio).</summary>
     public List<OptionSchema>? Options { get; set; }
 
-    /// <summary>Clé de lookup distant (autocomplete) : appelle GET /api/lookup/{LookupSource}?q=</summary>
-    public string? LookupSource { get; set; }
+    /// <summary>Autocomplete : id de la ressource (data source) que le front exécute pour lister les options.</summary>
+    public string? ResourceId { get; set; }
+
+    /// <summary>Autocomplete : règles d'auto-remplissage déclenchées à la sélection d'une option.</summary>
+    public List<FillRuleSchema>? Fill { get; set; }
 
     /// <summary>Condition d'affichage. Le champ masqué est désactivé : exclu de la valeur et de la validation.</summary>
     public ConditionSchema? VisibleIf { get; set; }
@@ -93,4 +96,18 @@ public sealed class OptionSchema
 {
     public object? Value { get; set; }
     public string Label { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Règle d'auto-remplissage d'un champ autocomplete : à la sélection d'une option, la
+/// valeur du champ extra <see cref="From"/> de l'option est écrite dans le champ du
+/// formulaire désigné par <see cref="To"/> (chemin pointé, ex: "adresse.ville").
+/// </summary>
+public sealed class FillRuleSchema
+{
+    /// <summary>Clé d'un champ extra de la ressource (ex: "ville").</summary>
+    public string From { get; set; } = string.Empty;
+
+    /// <summary>Chemin du champ du formulaire à remplir (ex: "adresse.ville").</summary>
+    public string To { get; set; } = string.Empty;
 }

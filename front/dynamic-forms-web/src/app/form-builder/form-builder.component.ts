@@ -13,9 +13,11 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { DynamicFormComponent } from '../dynamic-form/components/dynamic-form.component';
+import { Resource } from '../dynamic-form/models/form-schema.model';
 import { FormApiService, FormSummary } from '../dynamic-form/services/form-api.service';
 import { FieldPropertiesComponent } from './components/field-properties.component';
 import { FieldTreeComponent } from './components/field-tree.component';
+import { ResourceManagerComponent } from './components/resource-manager.component';
 import { BuilderStateService, FIELD_TYPES } from './services/builder-state.service';
 
 /**
@@ -34,6 +36,7 @@ import { BuilderStateService, FIELD_TYPES } from './services/builder-state.servi
     RouterLink,
     FieldTreeComponent,
     FieldPropertiesComponent,
+    ResourceManagerComponent,
     DynamicFormComponent,
     MatToolbarModule,
     MatCardModule,
@@ -60,7 +63,7 @@ export class FormBuilderComponent {
   readonly fieldTypes = FIELD_TYPES;
 
   readonly existingForms = signal<FormSummary[]>([]);
-  readonly lookupSources = signal<string[]>([]);
+  readonly resources = signal<Resource[]>([]);
   readonly saving = signal(false);
 
   /** Erreurs de validation renvoyées par le back au dernier enregistrement. */
@@ -76,10 +79,15 @@ export class FormBuilderComponent {
 
   constructor() {
     this.api.listForms().subscribe((forms) => this.existingForms.set(forms));
-    this.api.listLookupSources().subscribe((sources) => this.lookupSources.set(sources));
+    this.reloadResources();
   }
 
   // ---------------------------------------------------------------------------
+
+  /** Recharge les ressources — appelé au démarrage et après tout changement dans l'onglet Data Source. */
+  reloadResources(): void {
+    this.api.listResources().subscribe((resources) => this.resources.set(resources));
+  }
 
   /** Repart d'un formulaire existant, pour le modifier plutôt que tout ressaisir. */
   loadExisting(id: string): void {

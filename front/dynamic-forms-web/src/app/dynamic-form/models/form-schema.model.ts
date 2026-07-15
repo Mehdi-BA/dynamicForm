@@ -41,8 +41,11 @@ export interface FieldSchema {
   /** Options statiques : select, radio. */
   options?: OptionSchema[];
 
-  /** Clé de lookup distant pour les champs autocomplete. */
-  lookupSource?: string;
+  /** Autocomplete : id de la ressource (data source) exécutée par le moteur pour lister les options. */
+  resourceId?: string;
+
+  /** Autocomplete : règles d'auto-remplissage déclenchées à la sélection d'une option. */
+  fill?: FillRule[];
 
   /** Condition d'affichage. Un champ masqué est désactivé : hors valeur, hors validation. */
   visibleIf?: ConditionSchema;
@@ -94,4 +97,49 @@ export type ConditionOp =
 export interface OptionSchema {
   value: unknown;
   label: string;
+}
+
+/**
+ * Une « ressource » (data source) : la description déclarative d'un appel d'API que le
+ * moteur exécute côté front pour alimenter un champ autocomplete.
+ */
+export interface Resource {
+  id: string;
+  name: string;
+  url: string;
+  method?: string;
+  params?: ResourceParam[];
+  mapping: ResourceMapping;
+}
+
+export interface ResourceParam {
+  name: string;
+  /** Valeur par défaut ; le paramètre nommé `q` reçoit plutôt la saisie utilisateur. */
+  defaultValue?: string;
+}
+
+/** Comment transformer une ligne de la réponse JSON en option {value, label, extra}. */
+export interface ResourceMapping {
+  valueField: string;
+  labelField: string;
+  /** Champs additionnels conservés sur l'option, pour l'auto-remplissage. */
+  extraFields?: string[];
+}
+
+/**
+ * Règle d'auto-remplissage : à la sélection d'une option, la valeur du champ extra `from`
+ * de l'option est écrite dans le champ du formulaire désigné par `to` (chemin pointé).
+ */
+export interface FillRule {
+  /** Clé d'un champ extra de la ressource (ex: 'ville'). */
+  from: string;
+  /** Chemin du champ du formulaire à remplir (ex: 'adresse.ville'). */
+  to: string;
+}
+
+/** Une option d'autocomplete, produite par l'exécution d'une ressource. */
+export interface ResourceOption {
+  value: string;
+  label: string;
+  extra: Record<string, unknown>;
 }

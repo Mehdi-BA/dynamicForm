@@ -15,7 +15,10 @@ import {
   FormGroup,
   ReactiveFormsModule,
 } from '@angular/forms';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import {
+  MatAutocompleteModule,
+  MatAutocompleteSelectedEvent,
+} from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -24,11 +27,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatSelectModule } from '@angular/material/select';
-import { startWith } from 'rxjs';
-import { FieldSchema } from '../models/form-schema.model';
+import { debounceTime, startWith, Subscription, switchMap } from 'rxjs';
+import { FieldSchema, Resource, ResourceOption } from '../models/form-schema.model';
 import { ConditionEvaluatorService } from '../services/condition-evaluator.service';
 import { DynamicFormBuilderService } from '../services/dynamic-form-builder.service';
-import { FormApiService, LookupItem } from '../services/form-api.service';
+import { FormApiService } from '../services/form-api.service';
 import { ValidatorRegistryService } from '../services/validator-registry.service';
 
 /**
@@ -84,34 +87,23 @@ export class DynamicFieldComponent {
    */
   private readonly rootValue = signal<unknown>({});
 
-  /** Options de la source de lookup (autocomplete), une fois chargées. */
-  private readonly lookupItems = signal<LookupItem[]>([]);
+  /** Options d'autocomplete produites par l'exécution de la ressource. */
+  private readonly resourceOptions = signal<ResourceOption[]>([]);
 
-  /** Ce que l'utilisateur a tapé dans l'autocomplete. */
-  private readonly typed = signal('');
+  /** La ressource courante du champ, une fois chargée — porte le mapping et les règles d'exécution. */
+  private readonly currentResource = signal<Resource | null>(null);
 
   /** Le champ passe-t-il sa condition d'affichage ? */
   readonly visible = computed(() =>
     this.conditions.evaluate(this.field().visibleIf, this.rootValue()),
   );
 
-  /** Options de l'autocomplete filtrées par la saisie. */
-  readonly visibleLookupItems = computed(() => {
-    const items = this.lookupItems();
-    const needle = this.typed().toLowerCase().trim();
-
-    if (!needle) {
-      return items;
-    }
-
-    // Si la saisie correspond à un code déjà sélectionné, on réaffiche toute la liste
-    // plutôt qu'une liste vide (le champ contient "TN", pas "Tunisie").
-    if (items.some((i) => i.value.toLowerCase() === needle)) {
-      return items;
-    }
-
-    return items.filter((i) => i.label.toLowerCase().includes(needle));
-  });
+  /**
+   * Options affichées dans l'autocomplete. La ressource est réexécutée à chaque frappe
+   * (l'API peut filtrer côté serveur), donc les options sont déjà le bon sous-ensemble :
+   * on les expose telles quelles.
+   */
+  readonly visibleOptions = computed(() => this.resourceOptions());
 
   constructor() {
     // Suivre la valeur de la racine, pour réévaluer les conditions.
@@ -145,26 +137,39 @@ export class DynamicFieldComponent {
       }
     });
 
-    // Charger la source de lookup et suivre la saisie, pour les champs autocomplete.
+    // Charger la ressource et l'exécuter à chaque frappe, pour les champs autocomplete.
     effect((onCleanup) => {
       const schema = this.field();
-      const source = schema.lookupSource;
+      const resourceId = schema.resourceId;
 
-      if (schema.type !== 'autocomplete' || !source) {
+      if (schema.type !== 'autocomplete' || !resourceId) {
         return;
       }
 
-      const lookupSub = this.api.loadLookup(source).subscribe((items) => this.lookupItems.set(items));
-
       const control = untracked(() => this.control());
-      const typedSub = control?.valueChanges
-        .pipe(startWith(control.value))
-        .subscribe((v) => this.typed.set(String(v ?? '')));
+      const subs = new Subscription();
 
-      onCleanup(() => {
-        lookupSub.unsubscribe();
-        typedSub?.unsubscribe();
-      });
+      subs.add(
+        this.api.getResource(resourceId).subscribe((resource) => {
+          this.currentResource.set(resource);
+
+          // La saisie pilote l'exécution : `q` part au back, qui filtre. debounce + switchMap
+          // pour ne garder que la dernière requête en vol.
+          if (control) {
+            subs.add(
+              control.valueChanges
+                .pipe(
+                  startWith(control.value),
+                  debounceTime(250),
+                  switchMap((v) => this.api.executeResource(resource, String(v ?? ''))),
+                )
+                .subscribe((options) => this.resourceOptions.set(options)),
+            );
+          }
+        }),
+      );
+
+      onCleanup(() => subs.unsubscribe());
     });
   }
 
@@ -209,14 +214,38 @@ export class DynamicFieldComponent {
   // Autocomplete
   // ---------------------------------------------------------------------------
 
-  /** Le contrôle stocke le code ("TN") ; on affiche le libellé ("Tunisie"). */
-  displayLookup = (value: string): string => {
+  /** Le contrôle stocke la valeur (ex: un id) ; on affiche le libellé de l'option. */
+  displayOption = (value: string): string => {
     if (!value) {
       return '';
     }
 
-    return this.lookupItems().find((i) => i.value === value)?.label ?? value;
+    return this.resourceOptions().find((o) => o.value === value)?.label ?? value;
   };
+
+  /**
+   * À la sélection d'une option, applique les règles d'auto-remplissage du champ : la valeur
+   * du champ extra `from` de l'option est écrite dans le champ du formulaire ciblé par `to`.
+   * `FormGroup.get('adresse.ville')` résout nativement le chemin pointé.
+   */
+  onOptionSelected(event: MatAutocompleteSelectedEvent): void {
+    const rules = this.field().fill;
+    if (!rules?.length) {
+      return;
+    }
+
+    const option = this.resourceOptions().find((o) => o.value === event.option.value);
+    if (!option) {
+      return;
+    }
+
+    for (const rule of rules) {
+      const target = this.rootForm().get(rule.to);
+      if (target) {
+        target.patchValue(option.extra[rule.from]);
+      }
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Erreurs

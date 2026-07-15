@@ -71,6 +71,12 @@
   <!-- ── Colonne 2 : structure + aperçu ─────────────────────────────────────── -->
   <section class="fb-col fb-col--canvas">
     <mat-tab-group>
+      <mat-tab label="Data Source">
+        <div class="fb-tab">
+          <app-resource-manager (changed)="reloadResources()" />
+        </div>
+      </mat-tab>
+
       <mat-tab label="Structure">
         <div class="fb-tab">
           <div class="fb-form-props">
@@ -137,7 +143,7 @@
       <app-field-properties
         [path]="state.selectedPath() ?? []"
         [field]="field"
-        [lookupSources]="lookupSources()" />
+        [resources]="resources()" />
     } @else {
       <p class="fb-hint">Sélectionnez un champ dans la structure pour le configurer.</p>
     }

@@ -258,7 +258,7 @@ export class BuilderStateService {
   private normalizeForType(field: FieldSchema): void {
     const needsOptions = field.type === 'select' || field.type === 'radio';
     const isContainer = field.type === 'group' || field.type === 'array';
-    const needsLookup = field.type === 'autocomplete';
+    const needsResource = field.type === 'autocomplete';
 
     if (needsOptions) {
       field.options ??= [
@@ -287,8 +287,9 @@ export class BuilderStateService {
       delete field.initialItems;
     }
 
-    if (!needsLookup) {
-      delete field.lookupSource;
+    if (!needsResource) {
+      delete field.resourceId;
+      delete field.fill;
     }
   }
 
@@ -329,6 +330,8 @@ export class BuilderStateService {
         if (!out.options?.length) delete out.options;
         if (!out.hint) delete out.hint;
         if (!out.placeholder) delete out.placeholder;
+        if (!out.resourceId) delete out.resourceId;
+        if (!out.fill?.length) delete out.fill;
         if (!out.visibleIf) delete out.visibleIf;
         if (out.fields?.length) {
           out.fields = pruneFields(out.fields);
