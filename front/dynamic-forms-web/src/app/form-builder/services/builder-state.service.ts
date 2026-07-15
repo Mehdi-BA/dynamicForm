@@ -1,5 +1,5 @@
 import { computed, Injectable, signal } from '@angular/core';
-import { FieldSchema, FieldType, FormSchema } from '../../dynamic-form/models/form-schema.model';
+import { DataSourceDefinition, FieldSchema, FieldType, FormSchema } from '../../dynamic-form/models/form-schema.model';
 
 /**
  * État du form builder : l'arbre de champs en cours de construction.
@@ -44,6 +44,7 @@ export class BuilderStateService {
 
   readonly schema = this.schemaSignal.asReadonly();
   readonly selectedPath = this.selectedPathSignal.asReadonly();
+  readonly dataSources = computed(() => this.schemaSignal().dataSources ?? []);
 
   /** Le champ actuellement sélectionné, résolu depuis son chemin. */
   readonly selectedField = computed(() => {
@@ -70,6 +71,59 @@ export class BuilderStateService {
   /** Met à jour les propriétés du formulaire lui-même (titre, id, description…). */
   patchSchema(patch: Partial<Omit<FormSchema, 'fields'>>): void {
     this.schemaSignal.update((s) => ({ ...s, ...patch }));
+  }
+
+  addDataSource(): void {
+    const next = structuredClone(this.schemaSignal());
+    next.dataSources ??= [];
+
+    const id = this.uniqueDataSourceId('source', next.dataSources);
+    next.dataSources.push({
+      id,
+      label: `Source ${next.dataSources.length + 1}`,
+      url: '',
+      queryParam: 'q',
+      valueField: 'id',
+      displayField: 'label',
+      availableFields: [],
+    });
+
+    this.schemaSignal.set(next);
+  }
+
+  updateDataSource(index: number, patch: Partial<DataSourceDefinition>): void {
+    const next = structuredClone(this.schemaSignal());
+    const source = next.dataSources?.[index];
+
+    if (!source) {
+      return;
+    }
+
+    Object.assign(source, patch);
+    this.schemaSignal.set(next);
+  }
+
+  removeDataSource(index: number): void {
+    const next = structuredClone(this.schemaSignal());
+    const source = next.dataSources?.[index];
+
+    if (!source) {
+      return;
+    }
+
+    next.dataSources!.splice(index, 1);
+
+    for (const field of this.flattenFields(next.fields)) {
+      if (field.dataSourceId === source.id) {
+        delete field.dataSourceId;
+      }
+    }
+
+    if (!next.dataSources!.length) {
+      delete next.dataSources;
+    }
+
+    this.schemaSignal.set(next);
   }
 
   // ---------------------------------------------------------------------------
@@ -289,6 +343,7 @@ export class BuilderStateService {
     }
 
     if (!needsLookup) {
+      delete field.dataSourceId;
       delete field.lookupSource;
       delete field.lookupUrl;
       delete field.lookupKeyField;
@@ -341,6 +396,7 @@ export class BuilderStateService {
         if (!out.hint) delete out.hint;
         if (!out.placeholder) delete out.placeholder;
         if (!out.visibleIf) delete out.visibleIf;
+        if (!out.dataSourceId) delete out.dataSourceId;
         if (!out.lookupSource) delete out.lookupSource;
         if (!out.lookupUrl) delete out.lookupUrl;
         if (!out.lookupKeyField) delete out.lookupKeyField;
@@ -356,7 +412,42 @@ export class BuilderStateService {
         return out;
       });
 
-    return { ...schema, fields: pruneFields(schema.fields) };
+    const dataSources = schema.dataSources?.filter((x) => x.id || x.label || x.url).map((source) => {
+      const out = { ...source };
+      if (!out.queryParam || out.queryParam === 'q') delete out.queryParam;
+      if (!out.availableFields?.length) delete out.availableFields;
+      return out;
+    });
+
+    return { ...schema, fields: pruneFields(schema.fields), dataSources: dataSources?.length ? dataSources : undefined };
+  }
+
+  private uniqueDataSourceId(base: string, sources: DataSourceDefinition[]): string {
+    const taken = new Set(sources.map((s) => s.id));
+
+    if (!taken.has(base)) {
+      return base;
+    }
+
+    let i = 2;
+    while (taken.has(`${base}${i}`)) {
+      i++;
+    }
+
+    return `${base}${i}`;
+  }
+
+  private flattenFields(fields: FieldSchema[]): FieldSchema[] {
+    const flat: FieldSchema[] = [];
+
+    for (const field of fields) {
+      flat.push(field);
+      if (field.fields?.length) {
+        flat.push(...this.flattenFields(field.fields));
+      }
+    }
+
+    return flat;
   }
 
   // ---------------------------------------------------------------------------

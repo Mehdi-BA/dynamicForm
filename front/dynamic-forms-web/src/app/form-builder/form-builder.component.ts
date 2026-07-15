@@ -14,7 +14,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { DynamicFormComponent } from '../dynamic-form/components/dynamic-form.component';
-import { FormSchema } from '../dynamic-form/models/form-schema.model';
+import { DataSourceDefinition, DataSourceFieldDefinition, FormSchema } from '../dynamic-form/models/form-schema.model';
 import { FormApiService, FormSummary } from '../dynamic-form/services/form-api.service';
 import { FieldPropertiesComponent } from './components/field-properties.component';
 import { SaveAsDialogComponent } from './components/save-as-dialog.component';
@@ -173,5 +173,64 @@ export class FormBuilderComponent {
       () => this.snackBar.open('JSON copié.', 'OK', { duration: 2000 }),
       () => this.snackBar.open('Copie impossible.', 'OK', { duration: 2000 }),
     );
+  }
+
+  addDataSource(): void {
+    this.state.addDataSource();
+  }
+
+  updateDataSource(index: number, patch: Partial<DataSourceDefinition>): void {
+    const current = this.state.dataSources()[index];
+    if (!current) {
+      return;
+    }
+
+    const next: Partial<DataSourceDefinition> = { ...patch };
+
+    if (patch.label !== undefined && patch.id === undefined && current.id === this.slugify(current.label)) {
+      next.id = this.slugify(patch.label) || current.id;
+    }
+
+    this.state.updateDataSource(index, next);
+  }
+
+  removeDataSource(index: number): void {
+    this.state.removeDataSource(index);
+  }
+
+  addDataSourceField(sourceIndex: number): void {
+    const source = this.state.dataSources()[sourceIndex];
+    if (!source) {
+      return;
+    }
+
+    const availableFields = [...(source.availableFields ?? []), { path: '', label: '' }];
+    this.state.updateDataSource(sourceIndex, { availableFields });
+  }
+
+  updateDataSourceField(sourceIndex: number, fieldIndex: number, patch: Partial<DataSourceFieldDefinition>): void {
+    const source = this.state.dataSources()[sourceIndex];
+    if (!source) {
+      return;
+    }
+
+    const availableFields = [...(source.availableFields ?? [])];
+    if (!availableFields[fieldIndex]) {
+      return;
+    }
+
+    availableFields[fieldIndex] = { ...availableFields[fieldIndex], ...patch };
+    this.state.updateDataSource(sourceIndex, { availableFields });
+  }
+
+  removeDataSourceField(sourceIndex: number, fieldIndex: number): void {
+    const source = this.state.dataSources()[sourceIndex];
+    if (!source) {
+      return;
+    }
+
+    const availableFields = [...(source.availableFields ?? [])];
+    availableFields.splice(fieldIndex, 1);
+    this.state.updateDataSource(sourceIndex, { availableFields });
   }
 }

@@ -25,7 +25,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatSelectModule } from '@angular/material/select';
 import { catchError, debounceTime, distinctUntilChanged, of, startWith, switchMap } from 'rxjs';
-import { FieldSchema, OptionSchema } from '../models/form-schema.model';
+import { DataSourceDefinition, FieldSchema, OptionSchema } from '../models/form-schema.model';
 import { ConditionEvaluatorService } from '../services/condition-evaluator.service';
 import { DynamicFormBuilderService } from '../services/dynamic-form-builder.service';
 import { FormApiService, LookupItem } from '../services/form-api.service';
@@ -63,6 +63,7 @@ import { ValidatorRegistryService } from '../services/validator-registry.service
 })
 export class DynamicFieldComponent {
   readonly field = input.required<FieldSchema>();
+  readonly dataSources = input<DataSourceDefinition[]>([]);
 
   /** Le FormGroup qui contient directement ce champ (pas forcément la racine). */
   readonly parent = input.required<FormGroup>();
@@ -86,6 +87,16 @@ export class DynamicFieldComponent {
 
   /** Options de la source de lookup (autocomplete), alimentées par recherche distante. */
   readonly lookupItems = signal<LookupItem[]>([]);
+  readonly selectItems = computed(() => {
+    const schema = this.field();
+    const source = this.dataSourceFor(schema);
+
+    if (schema.type === 'select' && source) {
+      return this.lookupItems();
+    }
+
+    return [];
+  });
 
   /** Le champ passe-t-il sa condition d'affichage ? */
   readonly visible = computed(() =>
@@ -129,12 +140,14 @@ export class DynamicFieldComponent {
       const schema = this.field();
       const control = untracked(() => this.control());
 
-      if (schema.type !== 'autocomplete' || !control) {
+      const source = this.dataSourceFor(schema);
+
+      if ((schema.type !== 'autocomplete' && !(schema.type === 'select' && source)) || !control) {
         return;
       }
 
       const currentValue = String(control.value ?? '').trim();
-      const resolveSub = currentValue
+      const resolveSub = schema.type === 'autocomplete' && currentValue
         ? this.resolveLookup(schema, currentValue).subscribe((item) => {
             if (!item) {
               return;
@@ -152,10 +165,10 @@ export class DynamicFieldComponent {
 
       const searchSub = control.valueChanges
         .pipe(
-          startWith(''),
-          debounceTime(250),
+          startWith(schema.type === 'select' ? control.value : ''),
+          debounceTime(schema.type === 'autocomplete' ? 250 : 0),
           distinctUntilChanged(),
-          switchMap((value) => this.searchLookup(schema, String(value ?? '').trim())),
+          switchMap((value) => this.searchLookup(schema, schema.type === 'autocomplete' ? String(value ?? '').trim() : '')),
           catchError(() => of([] as LookupItem[])),
         )
         .subscribe((items) => {
@@ -253,15 +266,16 @@ export class DynamicFieldComponent {
   };
 
   private searchLookup(schema: FieldSchema, query: string) {
-    const lookupUrl = schema.lookupUrl?.trim();
+    const dataSource = this.dataSourceFor(schema);
+    const lookupUrl = dataSource?.url?.trim() || schema.lookupUrl?.trim();
 
     if (lookupUrl) {
       return this.api.searchLookupByUrl(
         {
           lookupUrl,
-          lookupKeyField: schema.lookupKeyField,
-          lookupValueField: schema.lookupValueField,
-          lookupQueryParam: schema.lookupQueryParam,
+          lookupKeyField: dataSource?.valueField || schema.lookupKeyField,
+          lookupValueField: dataSource?.displayField || schema.lookupValueField,
+          lookupQueryParam: dataSource?.queryParam || schema.lookupQueryParam,
         },
         query,
       );
@@ -271,6 +285,10 @@ export class DynamicFieldComponent {
   }
 
   private resolveLookup(schema: FieldSchema, key: string) {
+    if (this.dataSourceFor(schema)?.url?.trim()) {
+      return of(null as LookupItem | null);
+    }
+
     const source = schema.lookupSource?.trim();
 
     // Le mode URL n'impose pas de route de résolution : on garde la clé tant que
@@ -293,6 +311,11 @@ export class DynamicFieldComponent {
     }
 
     if (schema.type === 'select') {
+      const selectItem = this.lookupItems().find((x) => this.sameValue(x.value, selectedValue));
+      if (selectItem) {
+        return selectItem.raw ?? { value: selectItem.value, label: selectItem.label };
+      }
+
       const option = (schema.options ?? []).find((o) => this.sameValue(o.value, selectedValue));
       if (!option) {
         return null;
@@ -347,6 +370,16 @@ export class DynamicFieldComponent {
 
   private optionData(option: OptionSchema): Record<string, unknown> {
     return option.data && typeof option.data === 'object' ? option.data : {};
+  }
+
+  private dataSourceFor(schema: FieldSchema): DataSourceDefinition | null {
+    const id = schema.dataSourceId?.trim();
+
+    if (!id) {
+      return null;
+    }
+
+    return this.dataSources().find((source) => source.id === id) ?? null;
   }
 
   private sameValue(a: unknown, b: unknown): boolean {

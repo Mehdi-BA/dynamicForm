@@ -49,6 +49,23 @@ public sealed class FormSchemaCatalog
         Title = "Fiche client",
         Description = "Formulaire complet : champs conditionnels, sous-formulaire adresse, liste de contacts.",
         SubmitLabel = "Enregistrer le client",
+        DataSources =
+        [
+            new DataSourceDefinition
+            {
+                Id = "pays",
+                Label = "Pays",
+                Url = "/api/referentials/pays/search",
+                QueryParam = "q",
+                ValueField = "key",
+                DisplayField = "value",
+                AvailableFields =
+                [
+                    new DataSourceFieldDefinition { Path = "key", Label = "Code pays" },
+                    new DataSourceFieldDefinition { Path = "value", Label = "Libellé pays" },
+                ],
+            },
+        ],
         Fields =
         [
             new FieldSchema
@@ -242,6 +259,7 @@ public sealed class FormSchemaCatalog
                         Name = "pays",
                         Label = "Pays",
                         Placeholder = "Tapez pour rechercher…",
+                        DataSourceId = "pays",
                         LookupUrl = "/api/referentials/pays/search",
                         LookupKeyField = "key",
                         LookupValueField = "value",

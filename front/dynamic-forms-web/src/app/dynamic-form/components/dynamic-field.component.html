@@ -13,6 +13,7 @@
             <!-- Récursion : le composant se re-rend pour chaque sous-champ. -->
             <app-dynamic-field
               [field]="child"
+              [dataSources]="dataSources()"
               [parent]="formGroup"
               [rootForm]="rootForm()"
               [style.grid-column]="'span ' + (child.cols ?? 12)" />
@@ -35,6 +36,7 @@
                 <!-- Récursion : chaque ligne est un FormGroup, ses champs sont rendus pareil. -->
                 <app-dynamic-field
                   [field]="child"
+                  [dataSources]="dataSources()"
                   [parent]="row"
                   [rootForm]="rootForm()"
                   [style.grid-column]="'span ' + (child.cols ?? 12)" />
@@ -102,8 +104,14 @@
       <mat-form-field appearance="outline" class="df-field">
         <mat-label>{{ field().label }}</mat-label>
         <mat-select [formControl]="formControl" [required]="isRequired()">
-          @for (option of field().options ?? []; track option.value) {
-            <mat-option [value]="option.value">{{ option.label }}</mat-option>
+          @if (selectItems().length) {
+            @for (item of selectItems(); track item.value) {
+              <mat-option [value]="item.value">{{ item.label }}</mat-option>
+            }
+          } @else {
+            @for (option of field().options ?? []; track option.value) {
+              <mat-option [value]="option.value">{{ option.label }}</mat-option>
+            }
           }
         </mat-select>
         @if (field().hint) {

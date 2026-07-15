@@ -22,6 +22,7 @@ export interface FormSchema {
   description?: string;
   submitLabel?: string;
   fields: FieldSchema[];
+  dataSources?: DataSourceDefinition[];
 }
 
 export interface FieldSchema {
@@ -43,6 +44,9 @@ export interface FieldSchema {
 
   /** Clé de lookup distant pour les champs autocomplete. */
   lookupSource?: string;
+
+  /** Identifiant d'une source de données déclarée au niveau du formulaire. */
+  dataSourceId?: string;
 
   /** URL de recherche pour un autocomplete distant (ex: /api/referentials/pays/search). */
   lookupUrl?: string;
@@ -121,4 +125,19 @@ export interface ResultMappingSchema {
   sourceField: string;
   /** Chemin du contrôle cible dans le formulaire (notation pointée). */
   targetField: string;
+}
+
+export interface DataSourceDefinition {
+  id: string;
+  label: string;
+  url: string;
+  queryParam?: string;
+  valueField: string;
+  displayField: string;
+  availableFields?: DataSourceFieldDefinition[];
+}
+
+export interface DataSourceFieldDefinition {
+  path: string;
+  label: string;
 }

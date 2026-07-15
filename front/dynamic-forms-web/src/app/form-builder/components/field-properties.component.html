@@ -51,6 +51,21 @@
   </mat-slider>
 
   <!-- ── Autocomplete ─────────────────────────────────────────────────────── -->
+  @if (field().type === 'autocomplete' || field().type === 'select') {
+    <mat-form-field appearance="outline">
+      <mat-label>Datasource</mat-label>
+      <mat-select
+        [value]="field().dataSourceId"
+        (valueChange)="setDataSourceId($event)">
+        <mat-option [value]="undefined">Aucune</mat-option>
+        @for (source of dataSources(); track source.id) {
+          <mat-option [value]="source.id">{{ source.label }} ({{ source.id }})</mat-option>
+        }
+      </mat-select>
+      <mat-hint>Choix simplifié: la datasource fournit URL, valeur stockée et libellé affiché.</mat-hint>
+    </mat-form-field>
+  }
+
   @if (field().type === 'autocomplete') {
     <mat-form-field appearance="outline">
       <mat-label>URL de recherche (optionnel)</mat-label>
@@ -124,11 +139,13 @@
 
         <mat-form-field appearance="outline">
           <mat-label>Champ source (résultat)</mat-label>
-          <input
-            matInput
-            [ngModel]="mapping.sourceField"
-            (ngModelChange)="updateResultMapping($index, { sourceField: $event })"
-            placeholder="value, label, data.code, address.city..." />
+          <mat-select
+            [value]="mapping.sourceField"
+            (valueChange)="updateResultMapping($index, { sourceField: $event })">
+            @for (sourceField of resultSourceOptions(); track sourceField.path) {
+              <mat-option [value]="sourceField.path">{{ sourceField.label }} ({{ sourceField.path }})</mat-option>
+            }
+          </mat-select>
         </mat-form-field>
 
         <mat-form-field appearance="outline">

@@ -11,6 +11,7 @@ import { MatSliderModule } from '@angular/material/slider';
 import {
   ConditionOp,
   ConditionSchema,
+  DataSourceDefinition,
   FieldSchema,
   FieldType,
   OptionSchema,
@@ -84,6 +85,7 @@ export class FieldPropertiesComponent {
 
   /** Sources de lookup proposées pour les champs autocomplete. */
   readonly lookupSources = input<string[]>([]);
+  readonly dataSources = input<DataSourceDefinition[]>([]);
 
   private readonly state = inject(BuilderStateService);
 
@@ -103,6 +105,26 @@ export class FieldPropertiesComponent {
   readonly canMapResult = computed(() => {
     const t = this.field().type;
     return t === 'select' || t === 'autocomplete';
+  });
+
+  readonly selectedDataSource = computed(
+    () => this.dataSources().find((source) => source.id === this.field().dataSourceId) ?? null,
+  );
+
+  readonly resultSourceOptions = computed(() => {
+    const source = this.selectedDataSource();
+
+    if (source?.availableFields?.length) {
+      return source.availableFields;
+    }
+
+    return [
+      { path: source?.displayField ?? 'label', label: 'Libellé affiché' },
+      { path: source?.valueField ?? 'value', label: 'Valeur stockée' },
+      { path: 'label', label: 'label' },
+      { path: 'value', label: 'value' },
+      { path: 'data', label: 'data' },
+    ];
   });
 
   /** Les validateurs pertinents pour le type courant. */
@@ -164,6 +186,18 @@ export class FieldPropertiesComponent {
       lookupKeyField: this.field().lookupKeyField || (trimmed ? 'key' : undefined),
       lookupValueField: this.field().lookupValueField || (trimmed ? 'value' : undefined),
       lookupQueryParam: this.field().lookupQueryParam || (trimmed ? 'q' : undefined),
+    });
+  }
+
+  setDataSourceId(dataSourceId: string | null): void {
+    const source = this.dataSources().find((item) => item.id === dataSourceId);
+
+    this.patch({
+      dataSourceId: dataSourceId || undefined,
+      lookupUrl: source?.url || this.field().lookupUrl,
+      lookupQueryParam: source?.queryParam || this.field().lookupQueryParam || 'q',
+      lookupKeyField: source?.valueField || this.field().lookupKeyField,
+      lookupValueField: source?.displayField || this.field().lookupValueField,
     });
   }
 

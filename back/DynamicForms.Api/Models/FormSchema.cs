@@ -10,6 +10,7 @@ public sealed class FormSchema
     public string? Description { get; set; }
     public string SubmitLabel { get; set; } = "Enregistrer";
     public List<FieldSchema> Fields { get; set; } = [];
+    public List<DataSourceDefinition>? DataSources { get; set; }
 }
 
 /// <summary>
@@ -38,6 +39,9 @@ public sealed class FieldSchema
 
     /// <summary>Clé de lookup distant (autocomplete) : appelle GET /api/lookup/{LookupSource}?q=</summary>
     public string? LookupSource { get; set; }
+
+    /// <summary>Identifiant d'une source de données déclarée au niveau du formulaire.</summary>
+    public string? DataSourceId { get; set; }
 
     /// <summary>URL de recherche pour un autocomplete distant (ex: /api/referentials/pays/search).</summary>
     public string? LookupUrl { get; set; }
@@ -123,4 +127,21 @@ public sealed class ResultMappingSchema
 
     /// <summary>Chemin du contrôle cible dans le formulaire (notation pointée).</summary>
     public string TargetField { get; set; } = string.Empty;
+}
+
+public sealed class DataSourceDefinition
+{
+    public string Id { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
+    public string? QueryParam { get; set; }
+    public string ValueField { get; set; } = string.Empty;
+    public string DisplayField { get; set; } = string.Empty;
+    public List<DataSourceFieldDefinition>? AvailableFields { get; set; }
+}
+
+public sealed class DataSourceFieldDefinition
+{
+    public string Path { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
 }
