@@ -1,22 +1,53 @@
-<mat-toolbar color="primary" class="fb-toolbar">
-  <span class="fb-toolbar__title">Form Builder</span>
+<div class="fb-topbar-shell">
+  <mat-toolbar color="primary" class="fb-toolbar">
+    <span class="fb-toolbar__title">Form Builder</span>
 
-  <span class="fb-toolbar__spacer"></span>
+    <span class="fb-toolbar__spacer"></span>
 
-  <button mat-button routerLink="/">
-    <mat-icon>visibility</mat-icon>
-    Voir la démo
-  </button>
+    <button mat-button routerLink="/">
+      <mat-icon>visibility</mat-icon>
+      Voir la démo
+    </button>
 
-  <button
-    mat-flat-button
-    class="fb-toolbar__save"
-    [disabled]="saving() || !canPreview()"
-    (click)="save()">
-    <mat-icon>save</mat-icon>
-    Enregistrer
-  </button>
-</mat-toolbar>
+    <button
+      mat-flat-button
+      class="fb-toolbar__save"
+      [disabled]="saving() || !canPreview()"
+      (click)="save()">
+      <mat-icon>save</mat-icon>
+      Enregistrer
+    </button>
+
+    <button
+      mat-stroked-button
+      class="fb-toolbar__save-as"
+      [disabled]="saving() || !canPreview()"
+      (click)="saveAs()">
+      <mat-icon>content_copy</mat-icon>
+      Enregistrer sous
+    </button>
+  </mat-toolbar>
+
+  <section class="fb-start">
+    <h2 class="fb-col__title">Template</h2>
+
+    <div class="fb-start__actions">
+      <mat-form-field appearance="outline" class="fb-start__select">
+        <mat-label>Sélectionner un template</mat-label>
+        <mat-select (valueChange)="loadExisting($event)">
+          @for (form of existingForms(); track form.id) {
+            <mat-option [value]="form.id">{{ form.title }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <button mat-stroked-button type="button" (click)="state.reset()">
+        <mat-icon>restart_alt</mat-icon>
+        Repartir de zéro
+      </button>
+    </div>
+  </section>
+</div>
 
 @if (saveErrors().length) {
   <div class="fb-errors" role="alert">
@@ -49,34 +80,11 @@
         </button>
       }
     </div>
-
-    <mat-divider />
-
-    <h2 class="fb-col__title">Partir d'un existant</h2>
-    <mat-form-field appearance="outline" class="fb-full">
-      <mat-label>Formulaire</mat-label>
-      <mat-select (valueChange)="loadExisting($event)">
-        @for (form of existingForms(); track form.id) {
-          <mat-option [value]="form.id">{{ form.title }}</mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
-
-    <button mat-stroked-button type="button" class="fb-full" (click)="state.reset()">
-      <mat-icon>restart_alt</mat-icon>
-      Repartir de zéro
-    </button>
   </aside>
 
   <!-- ── Colonne 2 : structure + aperçu ─────────────────────────────────────── -->
   <section class="fb-col fb-col--canvas">
     <mat-tab-group>
-      <mat-tab label="Data Source">
-        <div class="fb-tab">
-          <app-resource-manager (changed)="reloadResources()" />
-        </div>
-      </mat-tab>
-
       <mat-tab label="Structure">
         <div class="fb-tab">
           <div class="fb-form-props">
@@ -97,6 +105,89 @@
               <mat-hint>Sert dans l'URL : /api/forms/&lbrace;id&rbrace;</mat-hint>
             </mat-form-field>
           </div>
+
+          <section class="fb-data-sources">
+            <div class="fb-data-sources__header">
+              <h3 class="fb-col__title">Datasources</h3>
+              <button mat-stroked-button type="button" (click)="addDataSource()">
+                <mat-icon>add</mat-icon>
+                Ajouter une datasource
+              </button>
+            </div>
+
+            @for (source of state.dataSources(); track source.id; let sourceIndex = $index) {
+              <div class="fb-data-source-card">
+                <div class="fb-data-source-card__head">
+                  <strong>{{ source.label || source.id }}</strong>
+                  <button mat-icon-button type="button" color="warn" (click)="removeDataSource(sourceIndex)">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                </div>
+
+                <div class="fb-data-source-grid">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Libellé</mat-label>
+                    <input matInput [ngModel]="source.label" (ngModelChange)="updateDataSource(sourceIndex, { label: $event })" />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Identifiant</mat-label>
+                    <input matInput [ngModel]="source.id" (ngModelChange)="updateDataSource(sourceIndex, { id: $event })" />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="fb-data-source-grid__full">
+                    <mat-label>URL</mat-label>
+                    <input matInput [ngModel]="source.url" (ngModelChange)="updateDataSource(sourceIndex, { url: $event })" />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Query param</mat-label>
+                    <input matInput [ngModel]="source.queryParam" (ngModelChange)="updateDataSource(sourceIndex, { queryParam: $event })" placeholder="q" />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Champ valeur</mat-label>
+                    <input matInput [ngModel]="source.valueField" (ngModelChange)="updateDataSource(sourceIndex, { valueField: $event })" placeholder="id" />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Champ affiché</mat-label>
+                    <input matInput [ngModel]="source.displayField" (ngModelChange)="updateDataSource(sourceIndex, { displayField: $event })" placeholder="label" />
+                  </mat-form-field>
+                </div>
+
+                <div class="fb-data-source-fields">
+                  <div class="fb-data-source-fields__header">
+                    <span>Champs disponibles pour les mappings</span>
+                    <button mat-stroked-button type="button" (click)="addDataSourceField(sourceIndex)">
+                      <mat-icon>add</mat-icon>
+                      Ajouter un champ
+                    </button>
+                  </div>
+
+                  @for (fieldDef of source.availableFields ?? []; track $index; let fieldIndex = $index) {
+                    <div class="fb-data-source-field-row">
+                      <mat-form-field appearance="outline">
+                        <mat-label>Label</mat-label>
+                        <input matInput [ngModel]="fieldDef.label" (ngModelChange)="updateDataSourceField(sourceIndex, fieldIndex, { label: $event })" />
+                      </mat-form-field>
+
+                      <mat-form-field appearance="outline">
+                        <mat-label>Path</mat-label>
+                        <input matInput [ngModel]="fieldDef.path" (ngModelChange)="updateDataSourceField(sourceIndex, fieldIndex, { path: $event })" placeholder="address.city" />
+                      </mat-form-field>
+
+                      <button mat-icon-button type="button" color="warn" (click)="removeDataSourceField(sourceIndex, fieldIndex)">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </div>
+                  }
+                </div>
+              </div>
+            } @empty {
+              <p class="fb-hint">Aucune datasource définie. Ajoute une datasource pour simplifier les champs autocomplete/select.</p>
+            }
+          </section>
 
           @if (state.isEmpty()) {
             <div class="fb-empty">
@@ -143,7 +234,8 @@
       <app-field-properties
         [path]="state.selectedPath() ?? []"
         [field]="field"
-        [resources]="resources()" />
+        [dataSources]="state.dataSources()"
+        [lookupSources]="lookupSources()" />
     } @else {
       <p class="fb-hint">Sélectionnez un champ dans la structure pour le configurer.</p>
     }

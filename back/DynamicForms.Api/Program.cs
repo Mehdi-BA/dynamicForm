@@ -15,10 +15,11 @@ builder.Services
     });
 
 builder.Services.AddSingleton<FormSchemaCatalog>();
-builder.Services.AddSingleton<ResourceCatalog>();
+builder.Services.AddSingleton<LookupService>();
 builder.Services.AddSingleton<FormSchemaValidator>();
 
-builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 const string AngularCors = "angular";
 builder.Services.AddCors(options =>
@@ -31,7 +32,8 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseCors(AngularCors);

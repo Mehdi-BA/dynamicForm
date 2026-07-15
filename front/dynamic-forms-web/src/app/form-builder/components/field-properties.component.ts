@@ -8,15 +8,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSliderModule } from '@angular/material/slider';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   ConditionOp,
   ConditionSchema,
+  DataSourceDefinition,
   FieldSchema,
   FieldType,
-  FillRule,
   OptionSchema,
-  Resource,
+  ResultMappingSchema,
   ValidatorSchema,
 } from '../../dynamic-form/models/form-schema.model';
 import { BuilderStateService, FIELD_TYPES, FieldPath } from '../services/builder-state.service';
@@ -75,7 +74,6 @@ const OPERATORS: { op: ConditionOp; label: string; needsValue: boolean }[] = [
     MatIconModule,
     MatDividerModule,
     MatSliderModule,
-    MatTooltipModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './field-properties.component.html',
@@ -85,8 +83,9 @@ export class FieldPropertiesComponent {
   readonly path = input.required<FieldPath>();
   readonly field = input.required<FieldSchema>();
 
-  /** Ressources (data sources) proposées pour les champs autocomplete. */
-  readonly resources = input<Resource[]>([]);
+  /** Sources de lookup proposées pour les champs autocomplete. */
+  readonly lookupSources = input<string[]>([]);
+  readonly dataSources = input<DataSourceDefinition[]>([]);
 
   private readonly state = inject(BuilderStateService);
 
@@ -101,6 +100,31 @@ export class FieldPropertiesComponent {
   readonly hasOptions = computed(() => {
     const t = this.field().type;
     return t === 'select' || t === 'radio';
+  });
+
+  readonly canMapResult = computed(() => {
+    const t = this.field().type;
+    return t === 'select' || t === 'autocomplete';
+  });
+
+  readonly selectedDataSource = computed(
+    () => this.dataSources().find((source) => source.id === this.field().dataSourceId) ?? null,
+  );
+
+  readonly resultSourceOptions = computed(() => {
+    const source = this.selectedDataSource();
+
+    if (source?.availableFields?.length) {
+      return source.availableFields;
+    }
+
+    return [
+      { path: source?.displayField ?? 'label', label: 'Libellé affiché' },
+      { path: source?.valueField ?? 'value', label: 'Valeur stockée' },
+      { path: 'label', label: 'label' },
+      { path: 'value', label: 'value' },
+      { path: 'data', label: 'data' },
+    ];
   });
 
   /** Les validateurs pertinents pour le type courant. */
@@ -140,6 +164,8 @@ export class FieldPropertiesComponent {
     return paths;
   });
 
+  readonly resultMappings = computed<ResultMappingSchema[]>(() => this.field().resultMappings ?? []);
+
   // ---------------------------------------------------------------------------
   // Propriétés simples
   // ---------------------------------------------------------------------------
@@ -150,6 +176,29 @@ export class FieldPropertiesComponent {
 
   onTypeChange(type: FieldType): void {
     this.patch({ type });
+  }
+
+  setLookupUrl(url: string): void {
+    const trimmed = url.trim();
+
+    this.patch({
+      lookupUrl: trimmed || undefined,
+      lookupKeyField: this.field().lookupKeyField || (trimmed ? 'key' : undefined),
+      lookupValueField: this.field().lookupValueField || (trimmed ? 'value' : undefined),
+      lookupQueryParam: this.field().lookupQueryParam || (trimmed ? 'q' : undefined),
+    });
+  }
+
+  setDataSourceId(dataSourceId: string | null): void {
+    const source = this.dataSources().find((item) => item.id === dataSourceId);
+
+    this.patch({
+      dataSourceId: dataSourceId || undefined,
+      lookupUrl: source?.url || this.field().lookupUrl,
+      lookupQueryParam: source?.queryParam || this.field().lookupQueryParam || 'q',
+      lookupKeyField: source?.valueField || this.field().lookupKeyField,
+      lookupValueField: source?.displayField || this.field().lookupValueField,
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -226,39 +275,33 @@ export class FieldPropertiesComponent {
   }
 
   // ---------------------------------------------------------------------------
-  // Autocomplete : ressource + auto-remplissage
+  // Mapping de résultat (autocomplete/select -> autres champs)
   // ---------------------------------------------------------------------------
 
-  /** La ressource actuellement choisie sur le champ, résolue depuis la liste. */
-  readonly selectedResource = computed<Resource | null>(() => {
-    const id = this.field().resourceId;
-    return id ? (this.resources().find((r) => r.id === id) ?? null) : null;
-  });
+  addResultMapping(): void {
+    const firstTarget = this.conditionTargets()[0]?.path;
 
-  /** Champs extra de la ressource choisie : les `from` possibles pour une règle d'auto-remplissage. */
-  readonly resourceExtraFields = computed<string[]>(
-    () => this.selectedResource()?.mapping.extraFields ?? [],
-  );
+    const mappings = [...this.resultMappings()];
+    mappings.push({ sourceField: 'value', targetField: firstTarget ?? '' });
 
-  addFillRule(): void {
-    const from = this.resourceExtraFields()[0] ?? '';
-    const to = this.conditionTargets()[0]?.path ?? '';
-    this.patch({ fill: [...(this.field().fill ?? []), { from, to }] });
+    this.patch({ resultMappings: mappings });
   }
 
-  updateFillRule(index: number, patch: Partial<FillRule>): void {
-    const rules = [...(this.field().fill ?? [])];
-    if (!rules[index]) {
+  updateResultMapping(index: number, patch: Partial<ResultMappingSchema>): void {
+    const mappings = [...this.resultMappings()];
+
+    if (!mappings[index]) {
       return;
     }
-    rules[index] = { ...rules[index], ...patch };
-    this.patch({ fill: rules });
+
+    mappings[index] = { ...mappings[index], ...patch };
+    this.patch({ resultMappings: mappings });
   }
 
-  removeFillRule(index: number): void {
-    const rules = [...(this.field().fill ?? [])];
-    rules.splice(index, 1);
-    this.patch({ fill: rules });
+  removeResultMapping(index: number): void {
+    const mappings = [...this.resultMappings()];
+    mappings.splice(index, 1);
+    this.patch({ resultMappings: mappings.length ? mappings : undefined });
   }
 
   // ---------------------------------------------------------------------------

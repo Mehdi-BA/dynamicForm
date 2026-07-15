@@ -10,6 +10,7 @@ public sealed class FormSchema
     public string? Description { get; set; }
     public string SubmitLabel { get; set; } = "Enregistrer";
     public List<FieldSchema> Fields { get; set; } = [];
+    public List<DataSourceDefinition>? DataSources { get; set; }
 }
 
 /// <summary>
@@ -36,11 +37,29 @@ public sealed class FieldSchema
     /// <summary>Options statiques (select, radio).</summary>
     public List<OptionSchema>? Options { get; set; }
 
-    /// <summary>Autocomplete : id de la ressource (data source) que le front exécute pour lister les options.</summary>
-    public string? ResourceId { get; set; }
+    /// <summary>Clé de lookup distant (autocomplete) : appelle GET /api/lookup/{LookupSource}?q=</summary>
+    public string? LookupSource { get; set; }
 
-    /// <summary>Autocomplete : règles d'auto-remplissage déclenchées à la sélection d'une option.</summary>
-    public List<FillRuleSchema>? Fill { get; set; }
+    /// <summary>Identifiant d'une source de données déclarée au niveau du formulaire.</summary>
+    public string? DataSourceId { get; set; }
+
+    /// <summary>URL de recherche pour un autocomplete distant (ex: /api/referentials/pays/search).</summary>
+    public string? LookupUrl { get; set; }
+
+    /// <summary>Nom de la propriété contenant la clé dans la réponse API (ex: key, id, code).</summary>
+    public string? LookupKeyField { get; set; }
+
+    /// <summary>Nom de la propriété contenant le libellé dans la réponse API (ex: value, label, name).</summary>
+    public string? LookupValueField { get; set; }
+
+    /// <summary>Nom du paramètre query string utilisé pour la recherche (par défaut: q).</summary>
+    public string? LookupQueryParam { get; set; }
+
+    /// <summary>
+    /// Mapping de champs à remplir depuis le résultat sélectionné (autocomplete/select).
+    /// Exemple: sourceField="address.city" -> targetField="adresse.ville".
+    /// </summary>
+    public List<ResultMappingSchema>? ResultMappings { get; set; }
 
     /// <summary>Condition d'affichage. Le champ masqué est désactivé : exclu de la valeur et de la validation.</summary>
     public ConditionSchema? VisibleIf { get; set; }
@@ -96,18 +115,33 @@ public sealed class OptionSchema
 {
     public object? Value { get; set; }
     public string Label { get; set; } = string.Empty;
+
+    /// <summary>Données additionnelles optionnelles pour les mappings depuis un select.</summary>
+    public Dictionary<string, object?>? Data { get; set; }
 }
 
-/// <summary>
-/// Règle d'auto-remplissage d'un champ autocomplete : à la sélection d'une option, la
-/// valeur du champ extra <see cref="From"/> de l'option est écrite dans le champ du
-/// formulaire désigné par <see cref="To"/> (chemin pointé, ex: "adresse.ville").
-/// </summary>
-public sealed class FillRuleSchema
+public sealed class ResultMappingSchema
 {
-    /// <summary>Clé d'un champ extra de la ressource (ex: "ville").</summary>
-    public string From { get; set; } = string.Empty;
+    /// <summary>Chemin de la valeur dans l'objet résultat sélectionné (value, label, data.code...).</summary>
+    public string SourceField { get; set; } = string.Empty;
 
-    /// <summary>Chemin du champ du formulaire à remplir (ex: "adresse.ville").</summary>
-    public string To { get; set; } = string.Empty;
+    /// <summary>Chemin du contrôle cible dans le formulaire (notation pointée).</summary>
+    public string TargetField { get; set; } = string.Empty;
+}
+
+public sealed class DataSourceDefinition
+{
+    public string Id { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
+    public string? QueryParam { get; set; }
+    public string ValueField { get; set; } = string.Empty;
+    public string DisplayField { get; set; } = string.Empty;
+    public List<DataSourceFieldDefinition>? AvailableFields { get; set; }
+}
+
+public sealed class DataSourceFieldDefinition
+{
+    public string Path { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
 }

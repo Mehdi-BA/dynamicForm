@@ -12,6 +12,7 @@
         @for (field of schema().fields; track field.name) {
           <app-dynamic-field
             [field]="field"
+            [dataSources]="schema().dataSources ?? []"
             [parent]="form()"
             [rootForm]="form()"
             [style.grid-column]="'span ' + (field.cols ?? 12)" />

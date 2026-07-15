@@ -25,6 +25,8 @@ public sealed class FormSchemaValidator
     public IReadOnlyList<string> Validate(FormSchema schema)
     {
         var errors = new List<string>();
+        var dataSources = schema.DataSources ?? [];
+        var dataSourceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (string.IsNullOrWhiteSpace(schema.Id))
             errors.Add("L'identifiant du formulaire est obligatoire.");
@@ -35,12 +37,36 @@ public sealed class FormSchemaValidator
         if (schema.Fields.Count == 0)
             errors.Add("Le formulaire doit contenir au moins un champ.");
 
+        foreach (var source in dataSources)
+        {
+            if (string.IsNullOrWhiteSpace(source.Id))
+            {
+                errors.Add("Une source de données sans identifiant a été trouvée.");
+                continue;
+            }
+
+            if (!dataSourceIds.Add(source.Id))
+                errors.Add($"La source de données « {source.Id} » est définie plusieurs fois.");
+
+            if (string.IsNullOrWhiteSpace(source.Label))
+                errors.Add($"La source de données « {source.Id} » doit avoir un libellé.");
+
+            if (string.IsNullOrWhiteSpace(source.Url))
+                errors.Add($"La source de données « {source.Id} » doit avoir une URL.");
+
+            if (string.IsNullOrWhiteSpace(source.ValueField))
+                errors.Add($"La source de données « {source.Id} » doit définir valueField.");
+
+            if (string.IsNullOrWhiteSpace(source.DisplayField))
+                errors.Add($"La source de données « {source.Id} » doit définir displayField.");
+        }
+
         // Les chemins valides pour les conditions : tous les champs du formulaire,
         // en notation pointée ("adresse.pays").
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         CollectPaths(schema.Fields, prefix: "", paths);
 
-        ValidateFields(schema.Fields, path: "", paths, errors);
+        ValidateFields(schema.Fields, path: "", paths, dataSourceIds, errors);
 
         return errors;
     }
@@ -49,6 +75,7 @@ public sealed class FormSchemaValidator
         List<FieldSchema> fields,
         string path,
         HashSet<string> knownPaths,
+        HashSet<string> dataSourceIds,
         List<string> errors)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -78,24 +105,61 @@ public sealed class FormSchemaValidator
                 }
                 else
                 {
-                    ValidateFields(field.Fields, here, knownPaths, errors);
+                    ValidateFields(field.Fields, here, knownPaths, dataSourceIds, errors);
                 }
             }
 
-            // Un select/radio sans options est un champ que l'utilisateur ne peut pas remplir.
-            if (field.Type is "select" or "radio" && (field.Options is null || field.Options.Count == 0))
+            // Un select/radio sans options et sans datasource est un champ que l'utilisateur ne peut pas remplir.
+            if (field.Type is "select" or "radio" && string.IsNullOrWhiteSpace(field.DataSourceId) && (field.Options is null || field.Options.Count == 0))
                 errors.Add($"Le champ « {here} » est de type « {field.Type} » mais n'a aucune option.");
 
-            if (field.Type == "autocomplete" && string.IsNullOrWhiteSpace(field.ResourceId))
-                errors.Add($"Le champ « {here} » est de type « autocomplete » mais ne référence aucune ressource.");
+            if (!string.IsNullOrWhiteSpace(field.DataSourceId) && !dataSourceIds.Contains(field.DataSourceId))
+                errors.Add($"Le champ « {here} » référence la source de données inconnue « {field.DataSourceId} ».");
 
-            // Une règle d'auto-remplissage qui cible un champ inexistant n'écrirait jamais rien.
-            if (field.Fill is not null)
+            if (field.Type == "autocomplete")
             {
-                foreach (var rule in field.Fill)
+                var hasDataSource = !string.IsNullOrWhiteSpace(field.DataSourceId);
+                var hasLookupSource = !string.IsNullOrWhiteSpace(field.LookupSource);
+                var hasLookupUrl = !string.IsNullOrWhiteSpace(field.LookupUrl);
+
+                if (!hasDataSource && !hasLookupSource && !hasLookupUrl)
                 {
-                    if (!string.IsNullOrWhiteSpace(rule.To) && !knownPaths.Contains(rule.To))
-                        errors.Add($"Le champ « {here} » a une règle d'auto-remplissage qui cible « {rule.To} », qui n'existe pas.");
+                    errors.Add($"Le champ « {here} » est de type « autocomplete » mais n'a ni dataSource, ni source, ni URL.");
+                }
+
+                if (hasLookupUrl && !hasDataSource)
+                {
+                    if (string.IsNullOrWhiteSpace(field.LookupKeyField))
+                        errors.Add($"Le champ « {here} » définit lookupUrl mais pas lookupKeyField.");
+
+                    if (string.IsNullOrWhiteSpace(field.LookupValueField))
+                        errors.Add($"Le champ « {here} » définit lookupUrl mais pas lookupValueField.");
+                }
+            }
+
+            if (field.ResultMappings is { Count: > 0 })
+            {
+                if (field.Type is not "autocomplete" and not "select")
+                {
+                    errors.Add($"Le champ « {here} » définit resultMappings mais son type ne le supporte pas.");
+                }
+
+                foreach (var mapping in field.ResultMappings)
+                {
+                    if (string.IsNullOrWhiteSpace(mapping.SourceField))
+                        errors.Add($"Le champ « {here} » a un mapping sans sourceField.");
+
+                    if (string.IsNullOrWhiteSpace(mapping.TargetField))
+                    {
+                        errors.Add($"Le champ « {here} » a un mapping sans targetField.");
+                        continue;
+                    }
+
+                    if (!knownPaths.Contains(mapping.TargetField))
+                        errors.Add($"Le mapping du champ « {here} » cible « {mapping.TargetField} », qui n'existe pas.");
+
+                    if (string.Equals(mapping.TargetField, here, StringComparison.OrdinalIgnoreCase))
+                        errors.Add($"Le mapping du champ « {here} » ne peut pas cibler le champ lui-même.");
                 }
             }
 

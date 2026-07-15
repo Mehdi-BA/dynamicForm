@@ -15,10 +15,7 @@ import {
   FormGroup,
   ReactiveFormsModule,
 } from '@angular/forms';
-import {
-  MatAutocompleteModule,
-  MatAutocompleteSelectedEvent,
-} from '@angular/material/autocomplete';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -27,11 +24,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatSelectModule } from '@angular/material/select';
-import { debounceTime, startWith, Subscription, switchMap } from 'rxjs';
-import { FieldSchema, Resource, ResourceOption } from '../models/form-schema.model';
+import { catchError, debounceTime, distinctUntilChanged, of, startWith, switchMap } from 'rxjs';
+import { DataSourceDefinition, FieldSchema, OptionSchema } from '../models/form-schema.model';
 import { ConditionEvaluatorService } from '../services/condition-evaluator.service';
 import { DynamicFormBuilderService } from '../services/dynamic-form-builder.service';
-import { FormApiService } from '../services/form-api.service';
+import { FormApiService, LookupItem } from '../services/form-api.service';
 import { ValidatorRegistryService } from '../services/validator-registry.service';
 
 /**
@@ -66,6 +63,7 @@ import { ValidatorRegistryService } from '../services/validator-registry.service
 })
 export class DynamicFieldComponent {
   readonly field = input.required<FieldSchema>();
+  readonly dataSources = input<DataSourceDefinition[]>([]);
 
   /** Le FormGroup qui contient directement ce champ (pas forcément la racine). */
   readonly parent = input.required<FormGroup>();
@@ -87,23 +85,23 @@ export class DynamicFieldComponent {
    */
   private readonly rootValue = signal<unknown>({});
 
-  /** Options d'autocomplete produites par l'exécution de la ressource. */
-  private readonly resourceOptions = signal<ResourceOption[]>([]);
+  /** Options de la source de lookup (autocomplete), alimentées par recherche distante. */
+  readonly lookupItems = signal<LookupItem[]>([]);
+  readonly selectItems = computed(() => {
+    const schema = this.field();
+    const source = this.dataSourceFor(schema);
 
-  /** La ressource courante du champ, une fois chargée — porte le mapping et les règles d'exécution. */
-  private readonly currentResource = signal<Resource | null>(null);
+    if (schema.type === 'select' && source) {
+      return this.lookupItems();
+    }
+
+    return [];
+  });
 
   /** Le champ passe-t-il sa condition d'affichage ? */
   readonly visible = computed(() =>
     this.conditions.evaluate(this.field().visibleIf, this.rootValue()),
   );
-
-  /**
-   * Options affichées dans l'autocomplete. La ressource est réexécutée à chaque frappe
-   * (l'API peut filtrer côté serveur), donc les options sont déjà le bon sous-ensemble :
-   * on les expose telles quelles.
-   */
-  readonly visibleOptions = computed(() => this.resourceOptions());
 
   constructor() {
     // Suivre la valeur de la racine, pour réévaluer les conditions.
@@ -137,39 +135,83 @@ export class DynamicFieldComponent {
       }
     });
 
-    // Charger la ressource et l'exécuter à chaque frappe, pour les champs autocomplete.
+    // Charger/résoudre la valeur courante puis rechercher côté API pendant la saisie.
     effect((onCleanup) => {
       const schema = this.field();
-      const resourceId = schema.resourceId;
+      const control = untracked(() => this.control());
 
-      if (schema.type !== 'autocomplete' || !resourceId) {
+      const source = this.dataSourceFor(schema);
+
+      if ((schema.type !== 'autocomplete' && !(schema.type === 'select' && source)) || !control) {
         return;
       }
 
-      const control = untracked(() => this.control());
-      const subs = new Subscription();
+      const currentValue = String(control.value ?? '').trim();
+      const resolveSub = schema.type === 'autocomplete' && currentValue
+        ? this.resolveLookup(schema, currentValue).subscribe((item) => {
+            if (!item) {
+              return;
+            }
 
-      subs.add(
-        this.api.getResource(resourceId).subscribe((resource) => {
-          this.currentResource.set(resource);
+            this.lookupItems.update((items) => {
+              if (items.some((x) => x.value === item.value)) {
+                return items;
+              }
 
-          // La saisie pilote l'exécution : `q` part au back, qui filtre. debounce + switchMap
-          // pour ne garder que la dernière requête en vol.
-          if (control) {
-            subs.add(
-              control.valueChanges
-                .pipe(
-                  startWith(control.value),
-                  debounceTime(250),
-                  switchMap((v) => this.api.executeResource(resource, String(v ?? ''))),
-                )
-                .subscribe((options) => this.resourceOptions.set(options)),
-            );
+              return [item, ...items];
+            });
+          })
+        : null;
+
+      const searchSub = control.valueChanges
+        .pipe(
+          startWith(schema.type === 'select' ? control.value : ''),
+          debounceTime(schema.type === 'autocomplete' ? 250 : 0),
+          distinctUntilChanged(),
+          switchMap((value) => this.searchLookup(schema, schema.type === 'autocomplete' ? String(value ?? '').trim() : '')),
+          catchError(() => of([] as LookupItem[])),
+        )
+        .subscribe((items) => {
+          const selectedValue = String(control.value ?? '').trim();
+          const selected = this.lookupItems().find((item) => item.value === selectedValue);
+
+          if (selected && !items.some((item) => item.value === selected.value)) {
+            this.lookupItems.set([selected, ...items]);
+            return;
           }
-        }),
-      );
 
-      onCleanup(() => subs.unsubscribe());
+          this.lookupItems.set(items);
+        });
+
+      onCleanup(() => {
+        resolveSub?.unsubscribe();
+        searchSub.unsubscribe();
+      });
+    });
+
+    // Propager les valeurs du résultat sélectionné vers les champs cibles configurés.
+    effect((onCleanup) => {
+      const schema = this.field();
+      const control = untracked(() => this.control());
+
+      if (!control || !schema.resultMappings?.length) {
+        return;
+      }
+
+      if (schema.type !== 'autocomplete' && schema.type !== 'select') {
+        return;
+      }
+
+      const sub = control.valueChanges.pipe(startWith(control.value)).subscribe((value) => {
+        const result = this.selectedResult(schema, value);
+        if (!result) {
+          return;
+        }
+
+        this.applyResultMappings(schema, result);
+      });
+
+      onCleanup(() => sub.unsubscribe());
     });
   }
 
@@ -214,37 +256,134 @@ export class DynamicFieldComponent {
   // Autocomplete
   // ---------------------------------------------------------------------------
 
-  /** Le contrôle stocke la valeur (ex: un id) ; on affiche le libellé de l'option. */
-  displayOption = (value: string): string => {
+  /** Le contrôle stocke le code ("TN") ; on affiche le libellé ("Tunisie"). */
+  displayLookup = (value: string): string => {
     if (!value) {
       return '';
     }
 
-    return this.resourceOptions().find((o) => o.value === value)?.label ?? value;
+    return this.lookupItems().find((i) => i.value === value)?.label ?? value;
   };
 
-  /**
-   * À la sélection d'une option, applique les règles d'auto-remplissage du champ : la valeur
-   * du champ extra `from` de l'option est écrite dans le champ du formulaire ciblé par `to`.
-   * `FormGroup.get('adresse.ville')` résout nativement le chemin pointé.
-   */
-  onOptionSelected(event: MatAutocompleteSelectedEvent): void {
-    const rules = this.field().fill;
-    if (!rules?.length) {
-      return;
+  private searchLookup(schema: FieldSchema, query: string) {
+    const dataSource = this.dataSourceFor(schema);
+    const lookupUrl = dataSource?.url?.trim() || schema.lookupUrl?.trim();
+
+    if (lookupUrl) {
+      return this.api.searchLookupByUrl(
+        {
+          lookupUrl,
+          lookupKeyField: dataSource?.valueField || schema.lookupKeyField,
+          lookupValueField: dataSource?.displayField || schema.lookupValueField,
+          lookupQueryParam: dataSource?.queryParam || schema.lookupQueryParam,
+        },
+        query,
+      );
     }
 
-    const option = this.resourceOptions().find((o) => o.value === event.option.value);
-    if (!option) {
-      return;
+    return this.api.searchLookupBySource(schema.lookupSource ?? '', query);
+  }
+
+  private resolveLookup(schema: FieldSchema, key: string) {
+    if (this.dataSourceFor(schema)?.url?.trim()) {
+      return of(null as LookupItem | null);
     }
 
-    for (const rule of rules) {
-      const target = this.rootForm().get(rule.to);
-      if (target) {
-        target.patchValue(option.extra[rule.from]);
+    const source = schema.lookupSource?.trim();
+
+    // Le mode URL n'impose pas de route de résolution : on garde la clé tant que
+    // l'utilisateur n'a pas relancé une recherche qui renvoie le libellé.
+    if (!source || schema.lookupUrl?.trim()) {
+      return of(null as LookupItem | null);
+    }
+
+    return this.api.resolveLookupBySource(source, key);
+  }
+
+  private selectedResult(schema: FieldSchema, selectedValue: unknown): Record<string, unknown> | null {
+    if (schema.type === 'autocomplete') {
+      const item = this.lookupItems().find((x) => x.value === String(selectedValue ?? ''));
+      if (!item) {
+        return null;
       }
+
+      return item.raw ?? { value: item.value, label: item.label };
     }
+
+    if (schema.type === 'select') {
+      const selectItem = this.lookupItems().find((x) => this.sameValue(x.value, selectedValue));
+      if (selectItem) {
+        return selectItem.raw ?? { value: selectItem.value, label: selectItem.label };
+      }
+
+      const option = (schema.options ?? []).find((o) => this.sameValue(o.value, selectedValue));
+      if (!option) {
+        return null;
+      }
+
+      const data = this.optionData(option);
+      return { value: option.value, label: option.label, data };
+    }
+
+    return null;
+  }
+
+  private applyResultMappings(schema: FieldSchema, result: Record<string, unknown>): void {
+    const mappings = schema.resultMappings ?? [];
+
+    for (const mapping of mappings) {
+      const targetPath = mapping.targetField?.trim();
+      if (!targetPath || targetPath === schema.name) {
+        continue;
+      }
+
+      const target = this.rootForm().get(targetPath);
+      if (!target || target.disabled) {
+        continue;
+      }
+
+      const sourcePath = mapping.sourceField?.trim();
+      const next = sourcePath ? this.valueAtPath(result, sourcePath) : undefined;
+
+      if (this.sameValue(target.value, next ?? null)) {
+        continue;
+      }
+
+      target.setValue(next ?? null);
+    }
+  }
+
+  private valueAtPath(source: Record<string, unknown>, path: string): unknown {
+    const parts = path.split('.').map((p) => p.trim()).filter(Boolean);
+
+    let current: unknown = source;
+    for (const part of parts) {
+      if (!current || typeof current !== 'object' || !(part in (current as Record<string, unknown>))) {
+        return undefined;
+      }
+
+      current = (current as Record<string, unknown>)[part];
+    }
+
+    return current;
+  }
+
+  private optionData(option: OptionSchema): Record<string, unknown> {
+    return option.data && typeof option.data === 'object' ? option.data : {};
+  }
+
+  private dataSourceFor(schema: FieldSchema): DataSourceDefinition | null {
+    const id = schema.dataSourceId?.trim();
+
+    if (!id) {
+      return null;
+    }
+
+    return this.dataSources().find((source) => source.id === id) ?? null;
+  }
+
+  private sameValue(a: unknown, b: unknown): boolean {
+    return JSON.stringify(a) === JSON.stringify(b);
   }
 
   // ---------------------------------------------------------------------------

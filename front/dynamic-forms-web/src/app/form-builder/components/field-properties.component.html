@@ -50,64 +50,126 @@
     <input matSliderThumb [value]="field().cols ?? 12" (valueChange)="patch({ cols: $event })" />
   </mat-slider>
 
-  <!-- ── Autocomplete : ressource + auto-remplissage ──────────────────────── -->
-  @if (field().type === 'autocomplete') {
+  <!-- ── Autocomplete ─────────────────────────────────────────────────────── -->
+  @if (field().type === 'autocomplete' || field().type === 'select') {
     <mat-form-field appearance="outline">
-      <mat-label>Ressource (data source)</mat-label>
+      <mat-label>Datasource</mat-label>
       <mat-select
-        [value]="field().resourceId"
-        (valueChange)="patch({ resourceId: $event })">
-        @for (r of resources(); track r.id) {
-          <mat-option [value]="r.id">{{ r.name }}</mat-option>
+        [value]="field().dataSourceId"
+        (valueChange)="setDataSourceId($event)">
+        <mat-option [value]="undefined">Aucune</mat-option>
+        @for (source of dataSources(); track source.id) {
+          <mat-option [value]="source.id">{{ source.label }} ({{ source.id }})</mat-option>
         }
       </mat-select>
-      <mat-hint>Exécutée côté front à partir de son url et de son mapping.</mat-hint>
+      <mat-hint>Choix simplifié: la datasource fournit URL, valeur stockée et libellé affiché.</mat-hint>
+    </mat-form-field>
+  }
+
+  @if (field().type === 'autocomplete') {
+    <mat-form-field appearance="outline">
+      <mat-label>URL de recherche (optionnel)</mat-label>
+      <input
+        matInput
+        [ngModel]="field().lookupUrl"
+        (ngModelChange)="setLookupUrl($event)"
+        placeholder="/api/referentials/pays/search" />
+      <mat-hint>Si renseignée, cette URL est prioritaire sur la source ci-dessous.</mat-hint>
     </mat-form-field>
 
-    @if (field().resourceId) {
-      <h3 class="props__title">Auto-remplissage</h3>
+    <div class="props__option">
+      <mat-form-field appearance="outline" class="props__option-field">
+        <mat-label>Champ clé (key)</mat-label>
+        <input
+          matInput
+          [ngModel]="field().lookupKeyField"
+          (ngModelChange)="patch({ lookupKeyField: $event })"
+          placeholder="key" />
+      </mat-form-field>
 
-      @if (!resourceExtraFields().length) {
-        <p class="props__note">La ressource n'expose aucun champ extra à recopier.</p>
-      } @else {
-        @for (rule of field().fill ?? []; track $index) {
-          <div class="props__fill">
-            <mat-form-field appearance="outline" class="props__fill-field">
-              <mat-label>Champ ressource</mat-label>
-              <mat-select
-                [value]="rule.from"
-                (valueChange)="updateFillRule($index, { from: $event })">
-                @for (f of resourceExtraFields(); track f) {
-                  <mat-option [value]="f">{{ f }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+      <mat-form-field appearance="outline" class="props__option-field">
+        <mat-label>Champ libellé (value)</mat-label>
+        <input
+          matInput
+          [ngModel]="field().lookupValueField"
+          (ngModelChange)="patch({ lookupValueField: $event })"
+          placeholder="value" />
+      </mat-form-field>
+    </div>
 
-            <mat-icon class="props__fill-arrow">arrow_forward</mat-icon>
+    <mat-form-field appearance="outline">
+      <mat-label>Paramètre de recherche</mat-label>
+      <input
+        matInput
+        [ngModel]="field().lookupQueryParam"
+        (ngModelChange)="patch({ lookupQueryParam: $event || 'q' })"
+        placeholder="q" />
+    </mat-form-field>
 
-            <mat-form-field appearance="outline" class="props__fill-field">
-              <mat-label>Champ à remplir</mat-label>
-              <mat-select
-                [value]="rule.to"
-                (valueChange)="updateFillRule($index, { to: $event })">
-                @for (t of conditionTargets(); track t.path) {
-                  <mat-option [value]="t.path">{{ t.label }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-
-            <button mat-icon-button type="button" (click)="removeFillRule($index)" matTooltip="Supprimer">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
+    <mat-form-field appearance="outline">
+      <mat-label>Source de données</mat-label>
+      <mat-select
+        [value]="field().lookupSource"
+        (valueChange)="patch({ lookupSource: $event })">
+        @for (source of lookupSources(); track source) {
+          <mat-option [value]="source">{{ source }}</mat-option>
         }
+      </mat-select>
+      <mat-hint>Mode legacy: GET /api/lookup/&lbrace;source&rbrace; (si URL vide).</mat-hint>
+    </mat-form-field>
+  }
 
-        <button mat-stroked-button type="button" (click)="addFillRule()">
-          <mat-icon>add</mat-icon>
-          Ajouter une règle
-        </button>
-      }
+  @if (canMapResult()) {
+    <mat-divider />
+    <h3 class="props__title">Mapping du résultat sélectionné</h3>
+
+    @for (mapping of resultMappings(); track $index) {
+      <div class="props__rule">
+        <div class="props__rule-head">
+          <span class="props__rule-index">Mapping {{ $index + 1 }}</span>
+          <button
+            mat-icon-button
+            type="button"
+            color="warn"
+            [attr.aria-label]="'Supprimer le mapping ' + ($index + 1)"
+            (click)="removeResultMapping($index)">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Champ source (résultat)</mat-label>
+          <mat-select
+            [value]="mapping.sourceField"
+            (valueChange)="updateResultMapping($index, { sourceField: $event })">
+            @for (sourceField of resultSourceOptions(); track sourceField.path) {
+              <mat-option [value]="sourceField.path">{{ sourceField.label }} ({{ sourceField.path }})</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Champ cible (formulaire)</mat-label>
+          <mat-select
+            [value]="mapping.targetField"
+            (valueChange)="updateResultMapping($index, { targetField: $event })">
+            @for (target of conditionTargets(); track target.path) {
+              <mat-option [value]="target.path">{{ target.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
     }
+
+    <button mat-stroked-button type="button" (click)="addResultMapping()">
+      <mat-icon>add</mat-icon>
+      Ajouter un mapping
+    </button>
+
+    <p class="props__note">
+      Pour select: sourceField accepte au minimum value/label. Pour autocomplete URL, utilisez
+      les chemins de la réponse API (ex: address.city).
+    </p>
   }
 
   <!-- ── Liste répétable ──────────────────────────────────────────────────── -->

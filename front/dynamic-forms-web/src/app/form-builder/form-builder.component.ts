@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -13,11 +14,11 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { DynamicFormComponent } from '../dynamic-form/components/dynamic-form.component';
-import { Resource } from '../dynamic-form/models/form-schema.model';
+import { DataSourceDefinition, DataSourceFieldDefinition, FormSchema } from '../dynamic-form/models/form-schema.model';
 import { FormApiService, FormSummary } from '../dynamic-form/services/form-api.service';
 import { FieldPropertiesComponent } from './components/field-properties.component';
+import { SaveAsDialogComponent } from './components/save-as-dialog.component';
 import { FieldTreeComponent } from './components/field-tree.component';
-import { ResourceManagerComponent } from './components/resource-manager.component';
 import { BuilderStateService, FIELD_TYPES } from './services/builder-state.service';
 
 /**
@@ -36,7 +37,6 @@ import { BuilderStateService, FIELD_TYPES } from './services/builder-state.servi
     RouterLink,
     FieldTreeComponent,
     FieldPropertiesComponent,
-    ResourceManagerComponent,
     DynamicFormComponent,
     MatToolbarModule,
     MatCardModule,
@@ -59,11 +59,12 @@ export class FormBuilderComponent {
   readonly state = inject(BuilderStateService);
   private readonly api = inject(FormApiService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   readonly fieldTypes = FIELD_TYPES;
 
   readonly existingForms = signal<FormSummary[]>([]);
-  readonly resources = signal<Resource[]>([]);
+  readonly lookupSources = signal<string[]>([]);
   readonly saving = signal(false);
 
   /** Erreurs de validation renvoyées par le back au dernier enregistrement. */
@@ -79,15 +80,10 @@ export class FormBuilderComponent {
 
   constructor() {
     this.api.listForms().subscribe((forms) => this.existingForms.set(forms));
-    this.reloadResources();
+    this.api.listLookupSources().subscribe((sources) => this.lookupSources.set(sources));
   }
 
   // ---------------------------------------------------------------------------
-
-  /** Recharge les ressources — appelé au démarrage et après tout changement dans l'onglet Data Source. */
-  reloadResources(): void {
-    this.api.listResources().subscribe((resources) => this.resources.set(resources));
-  }
 
   /** Repart d'un formulaire existant, pour le modifier plutôt que tout ressaisir. */
   loadExisting(id: string): void {
@@ -103,13 +99,52 @@ export class FormBuilderComponent {
   save(): void {
     const schema = this.schema();
 
+    this.persistSchema(schema, `Formulaire « ${schema.title} » enregistré.`);
+  }
+
+  saveAs(): void {
+    const current = this.schema();
+    const title = `${current.title} copie`;
+    const id = this.slugify(title) || `${current.id}-copie`;
+
+    this.dialog
+      .open(SaveAsDialogComponent, {
+        data: { title, id },
+        width: '520px',
+        maxWidth: 'calc(100vw - 24px)',
+      })
+      .afterClosed()
+      .subscribe((result) => {
+        if (!result) {
+          return;
+        }
+
+        const schema = {
+          ...current,
+          id: result.id,
+          title: result.title,
+        };
+
+        this.persistSchema(schema, `Template « ${result.title} » créé.`, true);
+      });
+  }
+
+  private persistSchema(
+    schema: FormSchema,
+    successMessage: string,
+    reloadBuilder = false,
+  ): void {
+
     this.saving.set(true);
     this.saveErrors.set([]);
 
     this.api.saveSchema(schema).subscribe({
       next: () => {
         this.saving.set(false);
-        this.snackBar.open(`Formulaire « ${schema.title} » enregistré.`, 'OK', { duration: 3000 });
+        this.snackBar.open(successMessage, 'OK', { duration: 3000 });
+        if (reloadBuilder) {
+          this.state.load(schema);
+        }
         // Le nouveau formulaire doit apparaître dans la liste des existants.
         this.api.listForms().subscribe((forms) => this.existingForms.set(forms));
       },
@@ -124,10 +159,78 @@ export class FormBuilderComponent {
     });
   }
 
+  private slugify(value: string): string {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
   copyJson(): void {
     navigator.clipboard.writeText(this.json()).then(
       () => this.snackBar.open('JSON copié.', 'OK', { duration: 2000 }),
       () => this.snackBar.open('Copie impossible.', 'OK', { duration: 2000 }),
     );
+  }
+
+  addDataSource(): void {
+    this.state.addDataSource();
+  }
+
+  updateDataSource(index: number, patch: Partial<DataSourceDefinition>): void {
+    const current = this.state.dataSources()[index];
+    if (!current) {
+      return;
+    }
+
+    const next: Partial<DataSourceDefinition> = { ...patch };
+
+    if (patch.label !== undefined && patch.id === undefined && current.id === this.slugify(current.label)) {
+      next.id = this.slugify(patch.label) || current.id;
+    }
+
+    this.state.updateDataSource(index, next);
+  }
+
+  removeDataSource(index: number): void {
+    this.state.removeDataSource(index);
+  }
+
+  addDataSourceField(sourceIndex: number): void {
+    const source = this.state.dataSources()[sourceIndex];
+    if (!source) {
+      return;
+    }
+
+    const availableFields = [...(source.availableFields ?? []), { path: '', label: '' }];
+    this.state.updateDataSource(sourceIndex, { availableFields });
+  }
+
+  updateDataSourceField(sourceIndex: number, fieldIndex: number, patch: Partial<DataSourceFieldDefinition>): void {
+    const source = this.state.dataSources()[sourceIndex];
+    if (!source) {
+      return;
+    }
+
+    const availableFields = [...(source.availableFields ?? [])];
+    if (!availableFields[fieldIndex]) {
+      return;
+    }
+
+    availableFields[fieldIndex] = { ...availableFields[fieldIndex], ...patch };
+    this.state.updateDataSource(sourceIndex, { availableFields });
+  }
+
+  removeDataSourceField(sourceIndex: number, fieldIndex: number): void {
+    const source = this.state.dataSources()[sourceIndex];
+    if (!source) {
+      return;
+    }
+
+    const availableFields = [...(source.availableFields ?? [])];
+    availableFields.splice(fieldIndex, 1);
+    this.state.updateDataSource(sourceIndex, { availableFields });
   }
 }

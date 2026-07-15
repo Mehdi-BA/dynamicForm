@@ -49,6 +49,23 @@ public sealed class FormSchemaCatalog
         Title = "Fiche client",
         Description = "Formulaire complet : champs conditionnels, sous-formulaire adresse, liste de contacts.",
         SubmitLabel = "Enregistrer le client",
+        DataSources =
+        [
+            new DataSourceDefinition
+            {
+                Id = "pays",
+                Label = "Pays",
+                Url = "/api/referentials/pays/search",
+                QueryParam = "q",
+                ValueField = "key",
+                DisplayField = "value",
+                AvailableFields =
+                [
+                    new DataSourceFieldDefinition { Path = "key", Label = "Code pays" },
+                    new DataSourceFieldDefinition { Path = "value", Label = "Libellé pays" },
+                ],
+            },
+        ],
         Fields =
         [
             new FieldSchema
@@ -238,16 +255,17 @@ public sealed class FormSchemaCatalog
                     },
                     new FieldSchema
                     {
-                        // Autocomplete alimenté par la ressource « clients » : à la sélection d'un
-                        // client, sa ville auto-remplit le champ « ville » ci-dessus (via Fill).
                         Type = "autocomplete",
-                        Name = "rattachement",
-                        Label = "Rattaché au client",
-                        Placeholder = "Tapez pour rechercher un client…",
-                        Hint = "Choisir un client remplit automatiquement la ville.",
-                        ResourceId = "clients",
-                        Fill = [new FillRuleSchema { From = "ville", To = "adresse.ville" }],
+                        Name = "pays",
+                        Label = "Pays",
+                        Placeholder = "Tapez pour rechercher…",
+                        DataSourceId = "pays",
+                        LookupUrl = "/api/referentials/pays/search",
+                        LookupKeyField = "key",
+                        LookupValueField = "value",
+                        LookupQueryParam = "q",
                         Cols = 12,
+                        Validators = [new ValidatorSchema { Type = "required" }],
                     },
                 ],
             },

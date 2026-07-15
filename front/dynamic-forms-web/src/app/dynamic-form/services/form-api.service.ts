@@ -1,12 +1,30 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { map, Observable, shareReplay } from 'rxjs';
-import { FormSchema, Resource, ResourceOption } from '../models/form-schema.model';
+import { catchError, map, Observable, of } from 'rxjs';
+import { FormSchema } from '../models/form-schema.model';
 
 export interface FormSummary {
   id: string;
   title: string;
   description?: string;
+}
+
+export interface LookupItem {
+  value: string;
+  label: string;
+  raw?: Record<string, unknown>;
+}
+
+interface ReferentialItem {
+  key: string;
+  value: string;
+}
+
+export interface LookupFromUrlConfig {
+  lookupUrl: string;
+  lookupKeyField?: string;
+  lookupValueField?: string;
+  lookupQueryParam?: string;
 }
 
 export interface SubmitResult {
@@ -20,9 +38,6 @@ const API = 'http://localhost:5244/api';
 @Injectable({ providedIn: 'root' })
 export class FormApiService {
   private readonly http = inject(HttpClient);
-
-  /** Cache par id : une ressource ne change pas pendant l'exécution d'un formulaire. */
-  private readonly resourceCache = new Map<string, Observable<Resource>>();
 
   listForms(): Observable<FormSummary[]> {
     return this.http.get<FormSummary[]>(`${API}/forms`);
@@ -45,76 +60,72 @@ export class FormApiService {
     return this.http.delete<void>(`${API}/forms/${id}`);
   }
 
-  // ---------------------------------------------------------------------------
-  // Ressources (data sources) — CRUD, géré par l'onglet « Data Source » du builder
-  // ---------------------------------------------------------------------------
-
-  /** Liste complète des ressources : le builder a besoin de l'objet entier (url, mapping…). */
-  listResources(): Observable<Resource[]> {
-    return this.http.get<Resource[]>(`${API}/resources`);
+  /** Sources de lookup disponibles — proposées par le builder pour les champs autocomplete. */
+  listLookupSources(): Observable<string[]> {
+    return this.http.get<string[]>(`${API}/lookup`);
   }
 
-  /** Charge une ressource, une seule fois : elle ne change pas pendant l'exécution d'un form. */
-  getResource(id: string): Observable<Resource> {
-    if (!this.resourceCache.has(id)) {
-      this.resourceCache.set(
-        id,
-        this.http.get<Resource>(`${API}/resources/${id}`).pipe(
-          shareReplay({ bufferSize: 1, refCount: false }),
+  /** Recherche côté serveur via source interne key/value. */
+  searchLookupBySource(source: string, q: string): Observable<LookupItem[]> {
+    if (!source) {
+      return of([]);
+    }
+
+    return this.http
+      .get<ReferentialItem[]>(`${API}/referentials/${source}/search`, { params: { q } })
+      .pipe(
+        map((items) =>
+          items.map((item) => ({ value: item.key, label: item.value, raw: { key: item.key, value: item.value } })),
         ),
       );
+  }
+
+  /** Recherche côté serveur via URL paramétrée dans le schéma. */
+  searchLookupByUrl(config: LookupFromUrlConfig, q: string): Observable<LookupItem[]> {
+    const lookupUrl = config.lookupUrl?.trim();
+
+    if (!lookupUrl) {
+      return of([]);
     }
 
-    return this.resourceCache.get(id)!;
-  }
+    const keyField = (config.lookupKeyField || 'key').trim();
+    const valueField = (config.lookupValueField || 'value').trim();
+    const queryParam = (config.lookupQueryParam || 'q').trim();
 
-  saveResource(resource: Resource): Observable<Resource> {
-    // Le cache pointerait sur l'ancienne version.
-    this.resourceCache.delete(resource.id);
-    return this.http.put<Resource>(`${API}/resources/${resource.id}`, resource);
-  }
+    const params = queryParam ? { [queryParam]: q } : {};
 
-  deleteResource(id: string): Observable<void> {
-    this.resourceCache.delete(id);
-    return this.http.delete<void>(`${API}/resources/${id}`);
-  }
-
-  /**
-   * Exécute une ressource côté front : construit la requête depuis `url` + `params`, appelle
-   * l'API (le back ne fait pas de proxy), puis mappe chaque ligne de la réponse en option.
-   *
-   * Convention : le paramètre nommé `q` reçoit la saisie utilisateur ; les autres prennent
-   * leur `defaultValue`. La réponse attendue est un tableau d'objets ; toute autre forme
-   * dégrade proprement en liste vide.
-   */
-  executeResource(resource: Resource, q?: string): Observable<ResourceOption[]> {
-    let params = new HttpParams();
-
-    for (const p of resource.params ?? []) {
-      const value = p.name === 'q' ? (q ?? '') : p.defaultValue;
-      if (value !== undefined && value !== null && value !== '') {
-        params = params.set(p.name, value);
-      }
-    }
-
-    return this.http.get<unknown>(resource.url, { params }).pipe(
-      map((rows) => (Array.isArray(rows) ? rows : [])),
-      map((rows) => rows.map((row) => this.mapRow(row, resource.mapping))),
+    return this.http.get<Record<string, unknown>[]>(this.toAbsoluteUrl(lookupUrl), { params }).pipe(
+      map((rows) =>
+        rows
+          .map((row) => ({
+            value: String(row[keyField] ?? ''),
+            label: String(row[valueField] ?? ''),
+            raw: row,
+          }))
+          .filter((item) => !!item.value && !!item.label),
+      ),
+      catchError(() => of([])),
     );
   }
 
-  private mapRow(row: unknown, mapping: Resource['mapping']): ResourceOption {
-    const record = (row ?? {}) as Record<string, unknown>;
-
-    const extra: Record<string, unknown> = {};
-    for (const field of mapping.extraFields ?? []) {
-      extra[field] = record[field];
+  /** Résout un code en libellé via l'API référentiel key/value interne. */
+  resolveLookupBySource(source: string, key: string): Observable<LookupItem | null> {
+    if (!source || !key) {
+      return of(null);
     }
 
-    return {
-      value: String(record[mapping.valueField] ?? ''),
-      label: String(record[mapping.labelField] ?? ''),
-      extra,
-    };
+    return this.http.get<ReferentialItem>(`${API}/referentials/${source}/${encodeURIComponent(key)}`).pipe(
+      map((item) => ({ value: item.key, label: item.value, raw: { key: item.key, value: item.value } })),
+      catchError(() => of(null)),
+    );
+  }
+
+  private toAbsoluteUrl(url: string): string {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+
+    const normalized = url.startsWith('/') ? url : `/${url}`;
+    return `http://localhost:5244${normalized}`;
   }
 }

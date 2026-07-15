@@ -22,6 +22,7 @@ export interface FormSchema {
   description?: string;
   submitLabel?: string;
   fields: FieldSchema[];
+  dataSources?: DataSourceDefinition[];
 }
 
 export interface FieldSchema {
@@ -41,11 +42,29 @@ export interface FieldSchema {
   /** Options statiques : select, radio. */
   options?: OptionSchema[];
 
-  /** Autocomplete : id de la ressource (data source) exécutée par le moteur pour lister les options. */
-  resourceId?: string;
+  /** Clé de lookup distant pour les champs autocomplete. */
+  lookupSource?: string;
 
-  /** Autocomplete : règles d'auto-remplissage déclenchées à la sélection d'une option. */
-  fill?: FillRule[];
+  /** Identifiant d'une source de données déclarée au niveau du formulaire. */
+  dataSourceId?: string;
+
+  /** URL de recherche pour un autocomplete distant (ex: /api/referentials/pays/search). */
+  lookupUrl?: string;
+
+  /** Nom de la propriété qui contient la clé dans la réponse API (ex: key, id, code). */
+  lookupKeyField?: string;
+
+  /** Nom de la propriété qui contient le libellé dans la réponse API (ex: value, label, name). */
+  lookupValueField?: string;
+
+  /** Nom du paramètre query string utilisé pour la recherche (par défaut: q). */
+  lookupQueryParam?: string;
+
+  /**
+   * Mapping de champs à remplir depuis le résultat sélectionné.
+   * Exemple: sourceField="address.city" -> targetField="adresse.ville".
+   */
+  resultMappings?: ResultMappingSchema[];
 
   /** Condition d'affichage. Un champ masqué est désactivé : hors valeur, hors validation. */
   visibleIf?: ConditionSchema;
@@ -97,49 +116,28 @@ export type ConditionOp =
 export interface OptionSchema {
   value: unknown;
   label: string;
+  /** Données additionnelles d'une option select, réutilisables dans resultMappings. */
+  data?: Record<string, unknown>;
 }
 
-/**
- * Une « ressource » (data source) : la description déclarative d'un appel d'API que le
- * moteur exécute côté front pour alimenter un champ autocomplete.
- */
-export interface Resource {
+export interface ResultMappingSchema {
+  /** Chemin de la valeur dans l'objet résultat sélectionné (value, label, data.code...). */
+  sourceField: string;
+  /** Chemin du contrôle cible dans le formulaire (notation pointée). */
+  targetField: string;
+}
+
+export interface DataSourceDefinition {
   id: string;
-  name: string;
-  url: string;
-  method?: string;
-  params?: ResourceParam[];
-  mapping: ResourceMapping;
-}
-
-export interface ResourceParam {
-  name: string;
-  /** Valeur par défaut ; le paramètre nommé `q` reçoit plutôt la saisie utilisateur. */
-  defaultValue?: string;
-}
-
-/** Comment transformer une ligne de la réponse JSON en option {value, label, extra}. */
-export interface ResourceMapping {
-  valueField: string;
-  labelField: string;
-  /** Champs additionnels conservés sur l'option, pour l'auto-remplissage. */
-  extraFields?: string[];
-}
-
-/**
- * Règle d'auto-remplissage : à la sélection d'une option, la valeur du champ extra `from`
- * de l'option est écrite dans le champ du formulaire désigné par `to` (chemin pointé).
- */
-export interface FillRule {
-  /** Clé d'un champ extra de la ressource (ex: 'ville'). */
-  from: string;
-  /** Chemin du champ du formulaire à remplir (ex: 'adresse.ville'). */
-  to: string;
-}
-
-/** Une option d'autocomplete, produite par l'exécution d'une ressource. */
-export interface ResourceOption {
-  value: string;
   label: string;
-  extra: Record<string, unknown>;
+  url: string;
+  queryParam?: string;
+  valueField: string;
+  displayField: string;
+  availableFields?: DataSourceFieldDefinition[];
+}
+
+export interface DataSourceFieldDefinition {
+  path: string;
+  label: string;
 }
