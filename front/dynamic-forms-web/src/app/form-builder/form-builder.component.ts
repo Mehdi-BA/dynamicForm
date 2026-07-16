@@ -1,7 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from '@angular/core';
+import { FormGroup, FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog } from '@angular/material/dialog';
@@ -15,7 +22,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { DynamicFormComponent } from '../dynamic-form/components/dynamic-form.component';
-import { DataSourceDefinition, DataSourceFieldDefinition, FormSchema } from '../dynamic-form/models/form-schema.model';
+import { DataSourceDefinition, DataSourceFieldDefinition, FieldSchema, FormSchema } from '../dynamic-form/models/form-schema.model';
 import { FormApiService, FormSummary } from '../dynamic-form/services/form-api.service';
 import { FieldPropertiesComponent } from './components/field-properties.component';
 import { SaveAsDialogComponent } from './components/save-as-dialog.component';
@@ -42,7 +49,6 @@ import { BuilderStateService, FIELD_TYPES } from './services/builder-state.servi
     MatToolbarModule,
     MatCardModule,
     MatButtonModule,
-    MatButtonToggleModule,
     MatIconModule,
     MatFormFieldModule,
     MatInputModule,
@@ -81,15 +87,34 @@ export class FormBuilderComponent {
   /** L'aperçu ne peut rien rendre tant qu'il n'y a aucun champ. */
   readonly canPreview = computed(() => this.schema().fields.length > 0);
 
-  /** Un fragment n'a ni titre ni bouton d'envoi : le panneau s'adapte. */
-  readonly isFragment = computed(() => this.state.schema().kind === 'fragment');
+  /**
+   * Le FormGroup de l'aperçu : c'est le builder qui le fournit au moteur.
+   * Recréé à chaque changement de schéma — l'aperçu se reconstruit à chaque modification,
+   * et repartir d'un groupe neuf évite d'accumuler les contrôles des versions précédentes.
+   */
+  readonly previewForm = signal<FormGroup>(new FormGroup({}));
 
   readonly json = computed(() => JSON.stringify(this.schema(), null, 2));
 
   constructor() {
     this.api.listForms().subscribe((forms) => this.existingForms.set(forms));
     this.api.listLookupSources().subscribe((sources) => this.lookupSources.set(sources));
+
+    // Repartir d'un groupe neuf quand la structure des champs change (ajout, suppression,
+    // renommage). Suivre le schéma entier rappellerait à chaque frappe dans un libellé.
+    effect(() => {
+      this.fieldNames();
+      untracked(() => this.previewForm.set(new FormGroup({})));
+    });
   }
+
+  /** La signature de structure de l'aperçu : les noms de champs, à plat et récursivement. */
+  private readonly fieldNames = computed(() => {
+    const walk = (fields: FieldSchema[]): string =>
+      fields.map((f) => `${f.name}:${f.type}(${walk(f.fields ?? [])})`).join(',');
+
+    return walk(this.schema().fields);
+  });
 
   // ---------------------------------------------------------------------------
 

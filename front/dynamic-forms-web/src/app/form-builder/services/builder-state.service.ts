@@ -379,7 +379,6 @@ export class BuilderStateService {
   private emptySchema(): FormSchema {
     return {
       id: 'nouveau-formulaire',
-      kind: 'form',
       title: 'Nouveau formulaire',
       submitLabel: 'Enregistrer',
       fields: [],
@@ -420,23 +419,11 @@ export class BuilderStateService {
       return out;
     });
 
-    const out: FormSchema = {
+    return {
       ...schema,
       fields: pruneFields(schema.fields),
       dataSources: dataSources?.length ? dataSources : undefined,
     };
-
-    // 'form' est la valeur par défaut : l'émettre n'apporterait rien au JSON.
-    if (out.kind !== 'fragment') {
-      delete out.kind;
-    } else {
-      // Un fragment n'a ni en-tête ni bouton d'envoi : ces propriétés n'ont pas de sens.
-      out.title = '';
-      delete out.description;
-      delete out.submitLabel;
-    }
-
-    return out;
   }
 
   private uniqueDataSourceId(base: string, sources: DataSourceDefinition[]): string {

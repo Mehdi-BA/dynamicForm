@@ -196,41 +196,14 @@
 
       <mat-tab label="Structure">
         <div class="fb-tab">
-          <div class="fb-kind">
-            <mat-button-toggle-group
-              [value]="state.schema().kind ?? 'form'"
-              (valueChange)="state.patchSchema({ kind: $event })"
-              aria-label="Type de schéma">
-              <mat-button-toggle value="form">
-                <mat-icon>description</mat-icon>
-                Formulaire complet
-              </mat-button-toggle>
-              <mat-button-toggle value="fragment">
-                <mat-icon>extension</mat-icon>
-                Fragment
-              </mat-button-toggle>
-            </mat-button-toggle-group>
-
-            <p class="fb-hint fb-kind__hint">
-              @if (isFragment()) {
-                Seulement les champs : ni carte, ni titre, ni bouton. À intégrer dans le
-                formulaire d'une application hôte, qui fournit le FormGroup.
-              } @else {
-                Formulaire autonome : carte, titre et bouton d'envoi.
-              }
-            </p>
-          </div>
-
           <div class="fb-form-props">
-            @if (!isFragment()) {
-              <mat-form-field appearance="outline">
-                <mat-label>Titre du formulaire</mat-label>
-                <input
-                  matInput
-                  [ngModel]="state.schema().title"
-                  (ngModelChange)="state.patchSchema({ title: $event })" />
-              </mat-form-field>
-            }
+            <mat-form-field appearance="outline">
+              <mat-label>Titre du formulaire</mat-label>
+              <input
+                matInput
+                [ngModel]="state.schema().title"
+                (ngModelChange)="state.patchSchema({ title: $event })" />
+            </mat-form-field>
 
             <mat-form-field appearance="outline">
               <mat-label>Identifiant</mat-label>
@@ -256,8 +229,11 @@
       <mat-tab label="Aperçu">
         <div class="fb-tab">
           @if (canPreview()) {
-            <!-- Le même moteur que la démo : l'aperçu est le formulaire réel. -->
-            <app-dynamic-form [schema]="schema()" [debug]="true" />
+            <!--
+              Le même moteur que la démo : l'aperçu est le formulaire réel. C'est le builder
+              qui fournit le FormGroup, comme le ferait n'importe quelle application.
+            -->
+            <app-dynamic-form [schema]="schema()" [form]="previewForm()" [debug]="true" />
           } @else {
             <div class="fb-empty">
               <mat-icon>preview</mat-icon>

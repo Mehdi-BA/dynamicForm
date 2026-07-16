@@ -22,11 +22,6 @@ public sealed class FormSchemaValidator
         "eq", "neq", "in", "notIn", "gt", "gte", "lt", "lte", "truthy", "falsy",
     };
 
-    private static readonly HashSet<string> KnownKinds = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "form", "fragment",
-    };
-
     public IReadOnlyList<string> Validate(FormSchema schema)
     {
         var errors = new List<string>();
@@ -36,13 +31,7 @@ public sealed class FormSchemaValidator
         if (string.IsNullOrWhiteSpace(schema.Id))
             errors.Add("L'identifiant du formulaire est obligatoire.");
 
-        if (!KnownKinds.Contains(schema.Kind))
-            errors.Add($"Le type de schéma « {schema.Kind} » est inconnu : attendu « form » ou « fragment ».");
-
-        // Un fragment n'affiche pas de titre : c'est le formulaire hôte qui porte l'en-tête.
-        var isFragment = string.Equals(schema.Kind, "fragment", StringComparison.OrdinalIgnoreCase);
-
-        if (!isFragment && string.IsNullOrWhiteSpace(schema.Title))
+        if (string.IsNullOrWhiteSpace(schema.Title))
             errors.Add("Le titre du formulaire est obligatoire.");
 
         if (schema.Fields.Count == 0)

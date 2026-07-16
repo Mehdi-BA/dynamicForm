@@ -1,6 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { FormArray, FormControl, FormGroup } from '@angular/forms';
-import { FieldSchema, FormSchema } from '../models/form-schema.model';
+import { FieldSchema } from '../models/form-schema.model';
 import { ValidatorRegistryService } from './validator-registry.service';
 
 /**
@@ -18,17 +18,6 @@ import { ValidatorRegistryService } from './validator-registry.service';
 export class DynamicFormBuilderService {
   private readonly registry = inject(ValidatorRegistryService);
 
-  /** Point d'entrée : schéma complet -> FormGroup racine. */
-  build(schema: FormSchema, initialValue?: Record<string, unknown>): FormGroup {
-    const group = this.buildGroup(schema.fields);
-
-    if (initialValue) {
-      this.patch(group, schema.fields, initialValue);
-    }
-
-    return group;
-  }
-
   /** Construit un FormGroup à partir d'une liste de champs. */
   buildGroup(fields: FieldSchema[]): FormGroup {
     const controls: Record<string, FormControl | FormGroup | FormArray> = {};
@@ -41,11 +30,11 @@ export class DynamicFormBuilderService {
   }
 
   /**
-   * Greffe les champs dans un FormGroup existant — celui de l'application hôte, quand un
-   * fragment est intégré dans un formulaire plus large.
+   * Greffe les champs dans un FormGroup existant — celui que fournit l'application appelante.
+   * C'est le point d'entrée du moteur : il ne crée jamais le formulaire, il le peuple.
    *
    * `setControl` et non `addControl` : la greffe doit être idempotente, car le schéma peut
-   * être reconstruit (changement de schéma, aperçu du builder) sur le même groupe hôte.
+   * être reconstruit (changement de schéma, aperçu du builder) sur le même groupe.
    */
   buildInto(parent: FormGroup, fields: FieldSchema[]): FormGroup {
     for (const field of fields) {

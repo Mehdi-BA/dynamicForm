@@ -16,18 +16,8 @@ export type FieldType =
   | 'group'
   | 'array';
 
-/**
- * 'form' : formulaire complet — rendu avec sa carte, son titre et son bouton d'envoi.
- * 'fragment' : seulement les champs, à intégrer dans le formulaire d'une application hôte,
- * qui fournit le FormGroup et pilote la validation et l'envoi.
- */
-export type FormKind = 'form' | 'fragment';
-
 export interface FormSchema {
   id: string;
-  /** Absent = 'form' : un schéma sans marqueur reste un formulaire complet. */
-  kind?: FormKind;
-  /** Obligatoire pour un formulaire complet ; sans objet pour un fragment. */
   title: string;
   description?: string;
   submitLabel?: string;
