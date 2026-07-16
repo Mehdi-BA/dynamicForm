@@ -1,0 +1,46 @@
+[
+  {
+    "id": "clients",
+    "label": "Clients",
+    "url": "/api/clients/search",
+    "queryParam": "q",
+    "valueField": "id",
+    "displayField": "raisonSociale",
+    "availableFields": [
+      {
+        "path": "raisonSociale",
+        "label": "Raison sociale"
+      },
+      {
+        "path": "ville",
+        "label": "Ville"
+      },
+      {
+        "path": "secteur",
+        "label": "Secteur"
+      },
+      {
+        "path": "matricule",
+        "label": "Matricule fiscal"
+      }
+    ]
+  },
+  {
+    "id": "pays",
+    "label": "Pays",
+    "url": "/api/referentials/pays/search",
+    "queryParam": "q",
+    "valueField": "key",
+    "displayField": "value",
+    "availableFields": [
+      {
+        "path": "key",
+        "label": "Code pays"
+      },
+      {
+        "path": "value",
+        "label": "Libell\u00E9 pays"
+      }
+    ]
+  }
+]

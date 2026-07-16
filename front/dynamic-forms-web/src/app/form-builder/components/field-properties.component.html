@@ -2,45 +2,72 @@
   <!-- ── Général ──────────────────────────────────────────────────────────── -->
   <h3 class="props__title">Champ</h3>
 
-  <mat-form-field appearance="outline">
-    <mat-label>Type</mat-label>
-    <mat-select
-      [value]="field().type"
-      (valueChange)="onTypeChange($event)">
-      @for (t of fieldTypes; track t) {
-        <mat-option [value]="t">{{ typeLabels[t] }}</mat-option>
-      }
-    </mat-select>
-  </mat-form-field>
-
-  <mat-form-field appearance="outline">
-    <mat-label>Nom technique</mat-label>
-    <input
-      matInput
-      [ngModel]="field().name"
-      (ngModelChange)="patch({ name: $event })"
-      placeholder="email" />
-    <mat-hint>La clé dans le JSON envoyé au serveur.</mat-hint>
-  </mat-form-field>
-
-  <mat-form-field appearance="outline">
-    <mat-label>Libellé</mat-label>
-    <input matInput [ngModel]="field().label" (ngModelChange)="patch({ label: $event })" />
-  </mat-form-field>
-
-  @if (!isContainer()) {
+  @if (editableIdentity()) {
     <mat-form-field appearance="outline">
-      <mat-label>Placeholder</mat-label>
+      <mat-label>Type</mat-label>
+      <mat-select
+        [value]="field().type"
+        (valueChange)="onTypeChange($event)">
+        @for (t of fieldTypes; track t) {
+          <mat-option [value]="t">{{ typeLabels[t] }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Nom technique</mat-label>
       <input
         matInput
-        [ngModel]="field().placeholder"
-        (ngModelChange)="patch({ placeholder: $event })" />
+        [ngModel]="field().name"
+        (ngModelChange)="patch({ name: $event })"
+        placeholder="email" />
+      <mat-hint>La clé dans le JSON envoyé au serveur.</mat-hint>
     </mat-form-field>
 
     <mat-form-field appearance="outline">
-      <mat-label>Aide sous le champ</mat-label>
-      <input matInput [ngModel]="field().hint" (ngModelChange)="patch({ hint: $event })" />
+      <mat-label>Libellé</mat-label>
+      <input matInput [ngModel]="field().label" (ngModelChange)="patch({ label: $event })" />
     </mat-form-field>
+
+    @if (!isContainer()) {
+      <mat-form-field appearance="outline">
+        <mat-label>Placeholder</mat-label>
+        <input
+          matInput
+          [ngModel]="field().placeholder"
+          (ngModelChange)="patch({ placeholder: $event })" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Aide sous le champ</mat-label>
+        <input matInput [ngModel]="field().hint" (ngModelChange)="patch({ hint: $event })" />
+      </mat-form-field>
+    }
+  } @else {
+    <!-- Le champ se définit dans la bibliothèque : ici, on ne fait que le lire. -->
+    <div class="props__ro">
+      <span class="props__ro-key">Type</span>
+      <span class="props__ro-value">{{ typeLabel() }}</span>
+    </div>
+    <div class="props__ro">
+      <span class="props__ro-key">Nom</span>
+      <span class="props__ro-value">{{ field().name }}</span>
+    </div>
+    <div class="props__ro">
+      <span class="props__ro-key">Libellé</span>
+      <span class="props__ro-value">{{ display(field().label) }}</span>
+    </div>
+
+    @if (!isContainer()) {
+      <div class="props__ro">
+        <span class="props__ro-key">Placeholder</span>
+        <span class="props__ro-value">{{ display(field().placeholder) }}</span>
+      </div>
+      <div class="props__ro">
+        <span class="props__ro-key">Aide</span>
+        <span class="props__ro-value">{{ display(field().hint) }}</span>
+      </div>
+    }
   }
 
   <!-- La largeur dépend du formulaire d'accueil : hors sujet pour un modèle de bibliothèque. -->
@@ -55,74 +82,100 @@
 
   <!-- ── Autocomplete ─────────────────────────────────────────────────────── -->
   @if (field().type === 'autocomplete' || field().type === 'select') {
-    <mat-form-field appearance="outline">
-      <mat-label>Datasource</mat-label>
-      <mat-select
-        [value]="field().dataSourceId"
-        (valueChange)="setDataSourceId($event)">
-        <mat-option [value]="undefined">Aucune</mat-option>
-        @for (source of dataSources(); track source.id) {
-          <mat-option [value]="source.id">{{ source.label }} ({{ source.id }})</mat-option>
-        }
-      </mat-select>
-      <mat-hint>Choix simplifié: la datasource fournit URL, valeur stockée et libellé affiché.</mat-hint>
-    </mat-form-field>
+    @if (editableIdentity()) {
+      <mat-form-field appearance="outline">
+        <mat-label>Datasource</mat-label>
+        <mat-select
+          [value]="field().dataSourceId"
+          (valueChange)="setDataSourceId($event)">
+          <mat-option [value]="undefined">Aucune</mat-option>
+          @for (source of dataSources(); track source.id) {
+            <mat-option [value]="source.id">{{ source.label }} ({{ source.id }})</mat-option>
+          }
+        </mat-select>
+        <mat-hint>Choix simplifié: la datasource fournit URL, valeur stockée et libellé affiché.</mat-hint>
+      </mat-form-field>
+    } @else if (field().dataSourceId) {
+      <div class="props__ro">
+        <span class="props__ro-key">Datasource</span>
+        <span class="props__ro-value">{{ dataSourceLabel() }}</span>
+      </div>
+    }
   }
 
   @if (field().type === 'autocomplete') {
-    <mat-form-field appearance="outline">
-      <mat-label>URL de recherche (optionnel)</mat-label>
-      <input
-        matInput
-        [ngModel]="field().lookupUrl"
-        (ngModelChange)="setLookupUrl($event)"
-        placeholder="/api/referentials/pays/search" />
-      <mat-hint>Si renseignée, cette URL est prioritaire sur la source ci-dessous.</mat-hint>
-    </mat-form-field>
-
-    <div class="props__option">
-      <mat-form-field appearance="outline" class="props__option-field">
-        <mat-label>Champ clé (key)</mat-label>
+    @if (editableIdentity()) {
+      <mat-form-field appearance="outline">
+        <mat-label>URL de recherche (optionnel)</mat-label>
         <input
           matInput
-          [ngModel]="field().lookupKeyField"
-          (ngModelChange)="patch({ lookupKeyField: $event })"
-          placeholder="key" />
+          [ngModel]="field().lookupUrl"
+          (ngModelChange)="setLookupUrl($event)"
+          placeholder="/api/referentials/pays/search" />
+        <mat-hint>Si renseignée, cette URL est prioritaire sur la source ci-dessous.</mat-hint>
       </mat-form-field>
 
-      <mat-form-field appearance="outline" class="props__option-field">
-        <mat-label>Champ libellé (value)</mat-label>
+      <div class="props__option">
+        <mat-form-field appearance="outline" class="props__option-field">
+          <mat-label>Champ clé (key)</mat-label>
+          <input
+            matInput
+            [ngModel]="field().lookupKeyField"
+            (ngModelChange)="patch({ lookupKeyField: $event })"
+            placeholder="key" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="props__option-field">
+          <mat-label>Champ libellé (value)</mat-label>
+          <input
+            matInput
+            [ngModel]="field().lookupValueField"
+            (ngModelChange)="patch({ lookupValueField: $event })"
+            placeholder="value" />
+        </mat-form-field>
+      </div>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Paramètre de recherche</mat-label>
         <input
           matInput
-          [ngModel]="field().lookupValueField"
-          (ngModelChange)="patch({ lookupValueField: $event })"
-          placeholder="value" />
+          [ngModel]="field().lookupQueryParam"
+          (ngModelChange)="patch({ lookupQueryParam: $event || 'q' })"
+          placeholder="q" />
       </mat-form-field>
-    </div>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Paramètre de recherche</mat-label>
-      <input
-        matInput
-        [ngModel]="field().lookupQueryParam"
-        (ngModelChange)="patch({ lookupQueryParam: $event || 'q' })"
-        placeholder="q" />
-    </mat-form-field>
-
-    <mat-form-field appearance="outline">
-      <mat-label>Source de données</mat-label>
-      <mat-select
-        [value]="field().lookupSource"
-        (valueChange)="patch({ lookupSource: $event })">
-        @for (source of lookupSources(); track source) {
-          <mat-option [value]="source">{{ source }}</mat-option>
-        }
-      </mat-select>
-      <mat-hint>Mode legacy: GET /api/lookup/&lbrace;source&rbrace; (si URL vide).</mat-hint>
-    </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Source de données</mat-label>
+        <mat-select
+          [value]="field().lookupSource"
+          (valueChange)="patch({ lookupSource: $event })">
+          @for (source of lookupSources(); track source) {
+            <mat-option [value]="source">{{ source }}</mat-option>
+          }
+        </mat-select>
+        <mat-hint>Mode legacy: GET /api/lookup/&lbrace;source&rbrace; (si URL vide).</mat-hint>
+      </mat-form-field>
+    } @else if (hasLookup()) {
+      <!-- Cinq champs de saisie tiennent en une ligne quand on ne fait que les lire. -->
+      <div class="props__ro">
+        <span class="props__ro-key">Lookup</span>
+        <span class="props__ro-value">{{ lookupSummary() }}</span>
+      </div>
+    }
   }
 
-  @if (canMapResult()) {
+  @if (canMapResult() && !editableIdentity()) {
+    @if (mappingsSummary().length) {
+      <mat-divider />
+      <h3 class="props__title">Mapping du résultat</h3>
+      @for (line of mappingsSummary(); track line) {
+        <div class="props__ro">
+          <span class="props__ro-key">Remplit</span>
+          <span class="props__ro-value">{{ line }}</span>
+        </div>
+      }
+    }
+  } @else if (canMapResult()) {
     <mat-divider />
     <h3 class="props__title">Mapping du résultat sélectionné</h3>
 
@@ -177,27 +230,44 @@
 
   <!-- ── Liste répétable ──────────────────────────────────────────────────── -->
   @if (field().type === 'array') {
-    <mat-form-field appearance="outline">
-      <mat-label>Libellé du bouton d'ajout</mat-label>
-      <input
-        matInput
-        [ngModel]="field().addLabel"
-        (ngModelChange)="patch({ addLabel: $event })" />
-    </mat-form-field>
+    @if (editableIdentity()) {
+      <mat-form-field appearance="outline">
+        <mat-label>Libellé du bouton d'ajout</mat-label>
+        <input
+          matInput
+          [ngModel]="field().addLabel"
+          (ngModelChange)="patch({ addLabel: $event })" />
+      </mat-form-field>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Lignes à l'ouverture</mat-label>
-      <input
-        matInput
-        type="number"
-        min="0"
-        [ngModel]="field().initialItems"
-        (ngModelChange)="patch({ initialItems: +$event })" />
-    </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Lignes à l'ouverture</mat-label>
+        <input
+          matInput
+          type="number"
+          min="0"
+          [ngModel]="field().initialItems"
+          (ngModelChange)="patch({ initialItems: +$event })" />
+      </mat-form-field>
+    } @else {
+      <div class="props__ro">
+        <span class="props__ro-key">Bouton d'ajout</span>
+        <span class="props__ro-value">{{ display(field().addLabel) }}</span>
+      </div>
+      <div class="props__ro">
+        <span class="props__ro-key">Lignes à l'ouverture</span>
+        <span class="props__ro-value">{{ display(field().initialItems) }}</span>
+      </div>
+    }
   }
 
   <!-- ── Options (select / radio) ─────────────────────────────────────────── -->
-  @if (hasOptions()) {
+  @if (hasOptions() && !editableIdentity()) {
+    <mat-divider />
+    <div class="props__ro">
+      <span class="props__ro-key">Options</span>
+      <span class="props__ro-value">{{ optionsSummary() }}</span>
+    </div>
+  } @else if (hasOptions()) {
     <mat-divider />
     <h3 class="props__title">Options</h3>
 

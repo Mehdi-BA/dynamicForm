@@ -22,6 +22,14 @@ export interface FormSchema {
   description?: string;
   submitLabel?: string;
   fields: FieldSchema[];
+
+  /**
+   * Les sources de données que les champs référencent par id.
+   *
+   * **Servies par le back, jamais stockées ni éditées ici** : elles sont globales et se gèrent
+   * dans la page /fields. Le formulaire ne les déclare pas — le back les joint au schéma qu'il
+   * sert, pour que le moteur puisse résoudre les références.
+   */
   dataSources?: DataSourceDefinition[];
 }
 

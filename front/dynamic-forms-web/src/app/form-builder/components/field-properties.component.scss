@@ -17,6 +17,34 @@
   color: var(--mat-sys-primary, #1976d2);
 }
 
+// ── Lecture seule ─────────────────────────────────────────────────────────────
+// Le champ se définit dans la bibliothèque : ici on ne fait que le lire. Une ligne
+// dense par propriété, là où un mat-form-field prendrait cinq fois la place.
+
+.props__ro {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.25rem 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  border-bottom: 1px solid var(--mat-sys-outline-variant, rgb(0 0 0 / 0.06));
+}
+
+.props__ro-key {
+  flex: none;
+  width: 6.5rem;
+  color: var(--mat-sys-on-surface-variant, rgb(0 0 0 / 0.6));
+}
+
+.props__ro-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .props__slider-label {
   font-size: 0.75rem;
   color: var(--mat-sys-on-surface-variant, rgb(0 0 0 / 0.6));

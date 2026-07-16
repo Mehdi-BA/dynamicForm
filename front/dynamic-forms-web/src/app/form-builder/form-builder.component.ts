@@ -24,7 +24,6 @@ import { RouterLink } from '@angular/router';
 import { DynamicFormComponent } from '../dynamic-form/components/dynamic-form.component';
 import {
   DataSourceDefinition,
-  DataSourceFieldDefinition,
   FieldDefinition,
   FieldSchema,
   FormSchema,
@@ -78,12 +77,15 @@ export class FormBuilderComponent {
   /** La palette : les champs métier de la bibliothèque, gérée par la page /fields. */
   readonly fieldLibrary = signal<FieldDefinition[]>([]);
 
+  /**
+   * Les sources de données, pour afficher le libellé de celle d'un champ. Le builder ne les
+   * édite plus : elles sont globales et se gèrent dans /fields, avec les champs.
+   */
+  readonly dataSources = signal<DataSourceDefinition[]>([]);
+
   readonly existingForms = signal<FormSummary[]>([]);
   readonly lookupSources = signal<string[]>([]);
   readonly saving = signal(false);
-
-  /** Datasources dont la détection des champs est en cours (spinner sur le bouton). */
-  readonly probing = signal<Set<string>>(new Set());
 
   /** Erreurs de validation renvoyées par le back au dernier enregistrement. */
   readonly saveErrors = signal<string[]>([]);
@@ -107,6 +109,7 @@ export class FormBuilderComponent {
     this.api.listForms().subscribe((forms) => this.existingForms.set(forms));
     this.api.listLookupSources().subscribe((sources) => this.lookupSources.set(sources));
     this.api.listFields().subscribe((fields) => this.fieldLibrary.set(fields));
+    this.api.listDataSources().subscribe((sources) => this.dataSources.set(sources));
 
     // Repartir d'un groupe neuf quand la structure des champs change (ajout, suppression,
     // renommage). Suivre le schéma entier rappellerait à chaque frappe dans un libellé.
@@ -132,74 +135,11 @@ export class FormBuilderComponent {
       next: (schema) => {
         this.state.load(schema);
         this.saveErrors.set([]);
-        // Rafraîchir les champs détectables : le mapping doit proposer ce que l'API renvoie.
-        this.state.dataSources().forEach((_, i) => this.detectFields(i, { silent: true }));
       },
       error: () => this.snackBar.open('Chargement impossible.', 'OK', { duration: 3000 }),
     });
   }
 
-  /** Une détection est-elle en cours pour cette datasource ? */
-  isProbing(sourceId: string): boolean {
-    return this.probing().has(sourceId);
-  }
-
-  /**
-   * Appelle réellement l'URL de la datasource et remplit ses « champs disponibles » avec
-   * les clés effectivement présentes dans la réponse. C'est ce qui garantit que le mapping
-   * de résultat propose les vrais champs reçus, sans saisie manuelle.
-   */
-  detectFields(index: number, opts: { silent?: boolean } = {}): void {
-    const source = this.state.dataSources()[index];
-    if (!source?.url?.trim()) {
-      if (!opts.silent) {
-        this.snackBar.open('Renseigne d\'abord une URL pour cette datasource.', 'OK', { duration: 3000 });
-      }
-      return;
-    }
-
-    this.probing.update((set) => new Set(set).add(source.id));
-
-    this.api.probeDataSourceFields(source.url, source.queryParam).subscribe({
-      next: (paths) => {
-        this.probing.update((set) => {
-          const next = new Set(set);
-          next.delete(source.id);
-          return next;
-        });
-
-        if (!paths.length) {
-          if (!opts.silent) {
-            this.snackBar.open('Aucun champ détecté (réponse vide ou inaccessible).', 'OK', { duration: 3000 });
-          }
-          return;
-        }
-
-        // Fusion : on garde les libellés déjà saisis, on ajoute les champs nouvellement détectés.
-        const existing = new Map((source.availableFields ?? []).map((f) => [f.path, f.label]));
-        const availableFields: DataSourceFieldDefinition[] = paths.map((path) => ({
-          path,
-          label: existing.get(path) || path,
-        }));
-
-        this.state.updateDataSource(index, { availableFields });
-
-        if (!opts.silent) {
-          this.snackBar.open(`${paths.length} champ(s) détecté(s).`, 'OK', { duration: 2500 });
-        }
-      },
-      error: () => {
-        this.probing.update((set) => {
-          const next = new Set(set);
-          next.delete(source.id);
-          return next;
-        });
-        if (!opts.silent) {
-          this.snackBar.open('Détection impossible.', 'OK', { duration: 3000 });
-        }
-      },
-    });
-  }
 
   save(): void {
     const schema = this.schema();
@@ -279,63 +219,5 @@ export class FormBuilderComponent {
       () => this.snackBar.open('Copie impossible.', 'OK', { duration: 2000 }),
     );
   }
-
-  addDataSource(): void {
-    this.state.addDataSource();
-  }
-
-  updateDataSource(index: number, patch: Partial<DataSourceDefinition>): void {
-    const current = this.state.dataSources()[index];
-    if (!current) {
-      return;
-    }
-
-    const next: Partial<DataSourceDefinition> = { ...patch };
-
-    if (patch.label !== undefined && patch.id === undefined && current.id === this.slugify(current.label)) {
-      next.id = this.slugify(patch.label) || current.id;
-    }
-
-    this.state.updateDataSource(index, next);
-  }
-
-  removeDataSource(index: number): void {
-    this.state.removeDataSource(index);
-  }
-
-  addDataSourceField(sourceIndex: number): void {
-    const source = this.state.dataSources()[sourceIndex];
-    if (!source) {
-      return;
-    }
-
-    const availableFields = [...(source.availableFields ?? []), { path: '', label: '' }];
-    this.state.updateDataSource(sourceIndex, { availableFields });
-  }
-
-  updateDataSourceField(sourceIndex: number, fieldIndex: number, patch: Partial<DataSourceFieldDefinition>): void {
-    const source = this.state.dataSources()[sourceIndex];
-    if (!source) {
-      return;
-    }
-
-    const availableFields = [...(source.availableFields ?? [])];
-    if (!availableFields[fieldIndex]) {
-      return;
-    }
-
-    availableFields[fieldIndex] = { ...availableFields[fieldIndex], ...patch };
-    this.state.updateDataSource(sourceIndex, { availableFields });
-  }
-
-  removeDataSourceField(sourceIndex: number, fieldIndex: number): void {
-    const source = this.state.dataSources()[sourceIndex];
-    if (!source) {
-      return;
-    }
-
-    const availableFields = [...(source.availableFields ?? [])];
-    availableFields.splice(fieldIndex, 1);
-    this.state.updateDataSource(sourceIndex, { availableFields });
-  }
 }
+

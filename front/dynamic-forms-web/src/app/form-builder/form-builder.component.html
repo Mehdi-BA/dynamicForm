@@ -103,114 +103,6 @@
   <!-- ── Colonne 2 : structure + aperçu ─────────────────────────────────────── -->
   <section class="fb-col fb-col--canvas">
     <mat-tab-group>
-      <mat-tab label="Data sources">
-        <div class="fb-tab">
-          <section class="fb-data-sources">
-            <div class="fb-data-sources__header">
-              <h3 class="fb-col__title">Datasources</h3>
-              <button mat-stroked-button type="button" (click)="addDataSource()">
-                <mat-icon>add</mat-icon>
-                Ajouter une datasource
-              </button>
-            </div>
-
-            <p class="fb-hint">
-              Une datasource décrit un appel d'API réutilisable. Les champs autocomplete/select
-              la référencent par identifiant, et le mapping de résultat pioche dans les champs
-              reçus (détecte-les depuis la réponse avec le bouton « Détecter les champs »).
-            </p>
-
-            @for (source of state.dataSources(); track source.id; let sourceIndex = $index) {
-              <div class="fb-data-source-card">
-                <div class="fb-data-source-card__head">
-                  <strong>{{ source.label || source.id }}</strong>
-                  <button mat-icon-button type="button" color="warn" (click)="removeDataSource(sourceIndex)">
-                    <mat-icon>delete_outline</mat-icon>
-                  </button>
-                </div>
-
-                <div class="fb-data-source-grid">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Libellé</mat-label>
-                    <input matInput [ngModel]="source.label" (ngModelChange)="updateDataSource(sourceIndex, { label: $event })" />
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline">
-                    <mat-label>Identifiant</mat-label>
-                    <input matInput [ngModel]="source.id" (ngModelChange)="updateDataSource(sourceIndex, { id: $event })" />
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline" class="fb-data-source-grid__full">
-                    <mat-label>URL</mat-label>
-                    <input matInput [ngModel]="source.url" (ngModelChange)="updateDataSource(sourceIndex, { url: $event })" />
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline">
-                    <mat-label>Query param</mat-label>
-                    <input matInput [ngModel]="source.queryParam" (ngModelChange)="updateDataSource(sourceIndex, { queryParam: $event })" placeholder="q" />
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline">
-                    <mat-label>Champ valeur</mat-label>
-                    <input matInput [ngModel]="source.valueField" (ngModelChange)="updateDataSource(sourceIndex, { valueField: $event })" placeholder="id" />
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline">
-                    <mat-label>Champ affiché</mat-label>
-                    <input matInput [ngModel]="source.displayField" (ngModelChange)="updateDataSource(sourceIndex, { displayField: $event })" placeholder="label" />
-                  </mat-form-field>
-                </div>
-
-                <div class="fb-data-source-fields">
-                  <div class="fb-data-source-fields__header">
-                    <span>Champs disponibles pour les mappings</span>
-                    <div class="fb-data-source-fields__actions">
-                      <button
-                        mat-flat-button
-                        color="primary"
-                        type="button"
-                        [disabled]="isProbing(source.id) || !source.url.trim()"
-                        (click)="detectFields(sourceIndex)">
-                        <mat-icon>{{ isProbing(source.id) ? 'hourglass_empty' : 'sync' }}</mat-icon>
-                        Détecter les champs
-                      </button>
-                      <button mat-stroked-button type="button" (click)="addDataSourceField(sourceIndex)">
-                        <mat-icon>add</mat-icon>
-                        Ajouter un champ
-                      </button>
-                    </div>
-                  </div>
-
-                  @for (fieldDef of source.availableFields ?? []; track $index; let fieldIndex = $index) {
-                    <div class="fb-data-source-field-row">
-                      <mat-form-field appearance="outline">
-                        <mat-label>Label</mat-label>
-                        <input matInput [ngModel]="fieldDef.label" (ngModelChange)="updateDataSourceField(sourceIndex, fieldIndex, { label: $event })" />
-                      </mat-form-field>
-
-                      <mat-form-field appearance="outline">
-                        <mat-label>Path</mat-label>
-                        <input matInput [ngModel]="fieldDef.path" (ngModelChange)="updateDataSourceField(sourceIndex, fieldIndex, { path: $event })" placeholder="address.city" />
-                      </mat-form-field>
-
-                      <button mat-icon-button type="button" color="warn" (click)="removeDataSourceField(sourceIndex, fieldIndex)">
-                        <mat-icon>close</mat-icon>
-                      </button>
-                    </div>
-                  } @empty {
-                    <p class="fb-hint">
-                      Aucun champ. Clique sur « Détecter les champs » pour les lire depuis la réponse
-                      de l'API, ou ajoute-les à la main.
-                    </p>
-                  }
-                </div>
-              </div>
-            } @empty {
-              <p class="fb-hint">Aucune datasource définie. Ajoute une datasource pour simplifier les champs autocomplete/select.</p>
-            }
-          </section>
-        </div>
-      </mat-tab>
 
       <mat-tab label="Structure">
         <div class="fb-tab">
@@ -281,11 +173,16 @@
     <h2 class="fb-col__title">Propriétés</h2>
 
     @if (state.selectedField(); as field) {
+      <!--
+        Le champ vient de la bibliothèque : son identité (type, nom, libellé, options…) s'y
+        définit et se lit ici. Seul le contextuel — validation, condition, largeur — s'édite.
+      -->
       <app-field-properties
         [path]="state.selectedPath() ?? []"
         [field]="field"
-        [dataSources]="state.dataSources()"
-        [lookupSources]="lookupSources()" />
+        [dataSources]="dataSources()"
+        [lookupSources]="lookupSources()"
+        [editableIdentity]="false" />
     } @else {
       <p class="fb-hint">Sélectionnez un champ dans la structure pour le configurer.</p>
     }

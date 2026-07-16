@@ -102,12 +102,81 @@
   }
 }
 
+// ── Sources de données ────────────────────────────────────────────────────────
+
+.fl-data-sources {
+  padding: 1.5rem;
+}
+
+.fl-data-source {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--mat-sys-outline-variant, rgb(0 0 0 / 0.12));
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container, rgb(0 0 0 / 0.02));
+}
+
+.fl-data-source__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.fl-data-source__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 0.75rem;
+}
+
+.fl-data-source__full {
+  grid-column: 1 / -1;
+}
+
+.fl-data-source__fields {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--mat-sys-outline-variant, rgb(0 0 0 / 0.12));
+}
+
+.fl-data-source__fields-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--mat-sys-on-surface-variant, rgb(0 0 0 / 0.6));
+}
+
+.fl-data-source__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.fl-data-source__field-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  // Les lignes sont denses : le sous-texte réservé par Material créerait des trous.
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+    display: none;
+  }
+
+  mat-form-field {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 @media (max-width: 900px) {
   .fl-layout {
     grid-template-columns: 1fr;
   }
 
-  .fl-row {
+  .fl-row,
+  .fl-data-source__grid {
     grid-template-columns: 1fr;
   }
 }

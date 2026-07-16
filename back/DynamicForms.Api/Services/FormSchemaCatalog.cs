@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using DynamicForms.Api.Models;
 
 namespace DynamicForms.Api.Services;
@@ -21,10 +22,12 @@ public sealed class FormSchemaCatalog
 {
     private readonly ConcurrentDictionary<string, FormSchema> _schemas;
     private readonly FieldLibrary _library;
+    private readonly DataSourceLibrary _dataSources;
 
-    public FormSchemaCatalog(FieldLibrary library)
+    public FormSchemaCatalog(FieldLibrary library, DataSourceLibrary dataSources)
     {
         _library = library;
+        _dataSources = dataSources;
         _schemas = new(StringComparer.OrdinalIgnoreCase);
         _schemas["client"] = BuildClientForm();
         _schemas["contact"] = BuildContactForm();
@@ -35,15 +38,46 @@ public sealed class FormSchemaCatalog
             .OrderBy(s => s.Title, StringComparer.CurrentCulture)
             .Select(s => new { s.Id, s.Title, s.Description });
 
-    public FormSchema? Get(string id) =>
-        _schemas.TryGetValue(id, out var schema) ? schema : null;
+    /// <summary>
+    /// Le schéma servi au moteur, enrichi des sources de données.
+    ///
+    /// Un formulaire ne stocke plus ses datasources — elles sont globales et référencées par id.
+    /// Mais le moteur, lui, les résout depuis le schéma qu'il reçoit : on les lui joint donc ici.
+    /// Stocké ≠ servi.
+    /// </summary>
+    public FormSchema? Get(string id)
+    {
+        if (!_schemas.TryGetValue(id, out var schema))
+            return null;
 
-    /// <summary>Crée ou remplace un schéma. C'est ce qu'appelle le form builder.</summary>
-    public void Save(FormSchema schema) => _schemas[schema.Id] = schema;
+        // Clone : sans lui, on grefferait les datasources sur l'objet du catalogue, qui les
+        // garderait ensuite en mémoire — et Save() les réécrirait dans le stockage.
+        var served = Clone(schema);
+        served.DataSources = [.. _dataSources.List()];
+
+        return served;
+    }
+
+    /// <summary>
+    /// Crée ou remplace un schéma. C'est ce qu'appelle le form builder.
+    ///
+    /// Les datasources reçues sont ignorées : elles sont globales et servies à la lecture. Les
+    /// stocker ici en figerait une copie, qui divergerait de la bibliothèque à la première
+    /// modification.
+    /// </summary>
+    public void Save(FormSchema schema)
+    {
+        schema.DataSources = null;
+        _schemas[schema.Id] = schema;
+    }
 
     public bool Exists(string id) => _schemas.ContainsKey(id);
 
     public bool Delete(string id) => _schemas.TryRemove(id, out _);
+
+    /// <summary>Clone profond, pour ne pas exposer l'objet du catalogue à ses appelants.</summary>
+    private static FormSchema Clone(FormSchema schema) =>
+        JsonSerializer.Deserialize<FormSchema>(JsonSerializer.Serialize(schema))!;
 
     // -------------------------------------------------------------------------
     // Composition : copier un champ de la bibliothèque, puis le contextualiser
@@ -97,42 +131,8 @@ public sealed class FormSchemaCatalog
         Title = "Fiche client",
         Description = "Formulaire complet : champs conditionnels, sous-formulaire adresse, liste de contacts.",
         SubmitLabel = "Enregistrer le client",
-        DataSources =
-        [
-            new DataSourceDefinition
-            {
-                Id = "pays",
-                Label = "Pays",
-                Url = "/api/referentials/pays/search",
-                QueryParam = "q",
-                ValueField = "key",
-                DisplayField = "value",
-                AvailableFields =
-                [
-                    new DataSourceFieldDefinition { Path = "key", Label = "Code pays" },
-                    new DataSourceFieldDefinition { Path = "value", Label = "Libellé pays" },
-                ],
-            },
-            // Source « riche » : chaque résultat porte plusieurs champs, ce qui permet
-            // à l'autocomplete « rattachement » d'auto-remplir la ville à la sélection
-            // d'un client (voir les ResultMappings du champ, dans la bibliothèque).
-            new DataSourceDefinition
-            {
-                Id = "clients",
-                Label = "Clients",
-                Url = "/api/clients/search",
-                QueryParam = "q",
-                ValueField = "id",
-                DisplayField = "raisonSociale",
-                AvailableFields =
-                [
-                    new DataSourceFieldDefinition { Path = "raisonSociale", Label = "Raison sociale" },
-                    new DataSourceFieldDefinition { Path = "ville", Label = "Ville" },
-                    new DataSourceFieldDefinition { Path = "secteur", Label = "Secteur" },
-                    new DataSourceFieldDefinition { Path = "matricule", Label = "Matricule fiscal" },
-                ],
-            },
-        ],
+        // Pas de DataSources ici : elles sont globales (DataSourceLibrary) et jointes au schéma
+        // à la lecture. Les champs les référencent par id, via la bibliothèque de champs.
         Fields =
         [
             Field("clientType"),

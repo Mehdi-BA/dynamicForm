@@ -8,8 +8,12 @@ namespace DynamicForms.Api.Services;
 /// Sans ça, un schéma incohérent (nom de champ dupliqué, `group` sans enfants, condition
 /// pointant vers un champ inexistant) serait accepté puis ferait échouer le moteur côté
 /// front, là où l'erreur est bien plus difficile à diagnostiquer.
+///
+/// Les sources de données sont globales (<see cref="DataSourceLibrary"/>) : le formulaire ne
+/// les déclare plus, il les référence. Le validateur vérifie donc que les références pointent
+/// vers des sources connues ; la cohérence d'une source elle-même se valide à son propre CRUD.
 /// </summary>
-public sealed class FormSchemaValidator
+public sealed class FormSchemaValidator(DataSourceLibrary dataSourceLibrary)
 {
     private static readonly HashSet<string> KnownTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -25,8 +29,10 @@ public sealed class FormSchemaValidator
     public IReadOnlyList<string> Validate(FormSchema schema)
     {
         var errors = new List<string>();
-        var dataSources = schema.DataSources ?? [];
-        var dataSourceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Les sources connues viennent de la bibliothèque, plus du schéma : un formulaire
+        // référence, il ne déclare pas.
+        var dataSourceIds = new HashSet<string>(dataSourceLibrary.Ids(), StringComparer.OrdinalIgnoreCase);
 
         if (string.IsNullOrWhiteSpace(schema.Id))
             errors.Add("L'identifiant du formulaire est obligatoire.");
@@ -36,30 +42,6 @@ public sealed class FormSchemaValidator
 
         if (schema.Fields.Count == 0)
             errors.Add("Le formulaire doit contenir au moins un champ.");
-
-        foreach (var source in dataSources)
-        {
-            if (string.IsNullOrWhiteSpace(source.Id))
-            {
-                errors.Add("Une source de données sans identifiant a été trouvée.");
-                continue;
-            }
-
-            if (!dataSourceIds.Add(source.Id))
-                errors.Add($"La source de données « {source.Id} » est définie plusieurs fois.");
-
-            if (string.IsNullOrWhiteSpace(source.Label))
-                errors.Add($"La source de données « {source.Id} » doit avoir un libellé.");
-
-            if (string.IsNullOrWhiteSpace(source.Url))
-                errors.Add($"La source de données « {source.Id} » doit avoir une URL.");
-
-            if (string.IsNullOrWhiteSpace(source.ValueField))
-                errors.Add($"La source de données « {source.Id} » doit définir valueField.");
-
-            if (string.IsNullOrWhiteSpace(source.DisplayField))
-                errors.Add($"La source de données « {source.Id} » doit définir displayField.");
-        }
 
         // Les chemins valides pour les conditions : tous les champs du formulaire,
         // en notation pointée ("adresse.pays").

@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { catchError, map, Observable, of } from 'rxjs';
-import { FieldDefinition, FormSchema } from '../models/form-schema.model';
+import { DataSourceDefinition, FieldDefinition, FormSchema } from '../models/form-schema.model';
 
 export interface FormSummary {
   id: string;
@@ -76,6 +76,23 @@ export class FormApiService {
 
   deleteField(id: string): Observable<void> {
     return this.http.delete<void>(`${API}/fields/${id}`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sources de données — globales, gérées par la page /fields
+  // ---------------------------------------------------------------------------
+
+  listDataSources(): Observable<DataSourceDefinition[]> {
+    return this.http.get<DataSourceDefinition[]>(`${API}/datasources`);
+  }
+
+  /** Crée ou remplace une source de données. Le back la valide avant d'accepter. */
+  saveDataSource(source: DataSourceDefinition): Observable<DataSourceDefinition> {
+    return this.http.put<DataSourceDefinition>(`${API}/datasources/${source.id}`, source);
+  }
+
+  deleteDataSource(id: string): Observable<void> {
+    return this.http.delete<void>(`${API}/datasources/${id}`);
   }
 
   deleteSchema(id: string): Observable<void> {

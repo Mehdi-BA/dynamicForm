@@ -16,6 +16,7 @@ builder.Services
 
 builder.Services.AddSingleton<FormSchemaCatalog>();
 builder.Services.AddSingleton<FieldLibrary>();
+builder.Services.AddSingleton<DataSourceLibrary>();
 builder.Services.AddSingleton<LookupService>();
 builder.Services.AddSingleton<FormSchemaValidator>();
 

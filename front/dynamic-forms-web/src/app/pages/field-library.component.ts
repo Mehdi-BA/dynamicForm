@@ -7,10 +7,16 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatListModule } from '@angular/material/list';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
-import { FieldDefinition, FieldSchema } from '../dynamic-form/models/form-schema.model';
+import {
+  DataSourceDefinition,
+  DataSourceFieldDefinition,
+  FieldDefinition,
+  FieldSchema,
+} from '../dynamic-form/models/form-schema.model';
 import { FormApiService } from '../dynamic-form/services/form-api.service';
 import { FieldPropertiesComponent } from '../form-builder/components/field-properties.component';
 import { BuilderStateService, TYPE_ICONS, TYPE_LABELS } from '../form-builder/services/builder-state.service';
@@ -41,6 +47,7 @@ import { BuilderStateService, TYPE_ICONS, TYPE_LABELS } from '../form-builder/se
     MatButtonModule,
     MatIconModule,
     MatListModule,
+    MatTabsModule,
     MatTooltipModule,
   ],
   // Un state local, uniquement pour piloter l'éditeur de champ.
@@ -69,12 +76,27 @@ export class FieldLibraryComponent {
   readonly typeIcons = TYPE_ICONS;
   readonly typeLabels = TYPE_LABELS;
 
+  // ---------------------------------------------------------------------------
+  // Sources de données — globales : un champ les référence par id, et c'est ici
+  // qu'on les déclare. Le back les joint ensuite au schéma qu'il sert au moteur.
+  // ---------------------------------------------------------------------------
+
+  readonly dataSources = signal<DataSourceDefinition[]>([]);
+
+  /** Datasources dont la détection des champs est en cours (spinner sur le bouton). */
+  readonly probing = signal<Set<string>>(new Set());
+
   constructor() {
     this.reload();
+    this.reloadDataSources();
   }
 
   reload(): void {
     this.api.listFields().subscribe((fields) => this.fields.set(fields));
+  }
+
+  reloadDataSources(): void {
+    this.api.listDataSources().subscribe((sources) => this.dataSources.set(sources));
   }
 
   // ---------------------------------------------------------------------------
@@ -185,6 +207,198 @@ export class FieldLibraryComponent {
       },
       error: () => this.snackBar.open('Suppression impossible.', 'OK', { duration: 3000 }),
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sources de données : CRUD
+  // ---------------------------------------------------------------------------
+
+  addDataSource(): void {
+    const id = this.uniqueDataSourceId('source');
+
+    this.persistDataSource({
+      id,
+      label: `Source ${this.dataSources().length + 1}`,
+      url: '',
+      queryParam: 'q',
+      valueField: 'id',
+      displayField: 'label',
+      availableFields: [],
+    });
+  }
+
+  /**
+   * Met à jour la source en mémoire, sans appeler le back : on n'enregistre pas à chaque
+   * frappe. L'écriture se fait à la perte du focus (voir `commitDataSource`).
+   */
+  updateDataSource(index: number, patch: Partial<DataSourceDefinition>): void {
+    const current = this.dataSources()[index];
+    if (!current) {
+      return;
+    }
+
+    const next: DataSourceDefinition = { ...current, ...patch };
+
+    // Tant que l'id suit le libellé, on le garde synchrone : le saisir deux fois n'apporte rien.
+    if (patch.label !== undefined && patch.id === undefined && current.id === this.slugify(current.label)) {
+      next.id = this.slugify(patch.label) || current.id;
+    }
+
+    this.dataSources.update((list) => list.map((s, i) => (i === index ? next : s)));
+  }
+
+  /**
+   * Enregistre la source éditée. Appelé à la perte du focus : une source en cours de frappe est
+   * incomplète, et le back la rejetterait à chaque caractère.
+   *
+   * `previousId` : renommer l'id revient à créer une autre source — il faut retirer l'ancienne.
+   */
+  commitDataSource(index: number, previousId?: string): void {
+    const source = this.dataSources()[index];
+    if (!source) {
+      return;
+    }
+
+    if (previousId && previousId !== source.id) {
+      this.api.deleteDataSource(previousId).subscribe({ error: () => {} });
+    }
+
+    this.persistDataSource(source);
+  }
+
+  removeDataSource(index: number): void {
+    const source = this.dataSources()[index];
+    if (!source) {
+      return;
+    }
+
+    this.api.deleteDataSource(source.id).subscribe({
+      next: () => {
+        this.snackBar.open(`Source « ${source.label || source.id} » supprimée.`, 'OK', { duration: 2500 });
+        this.reloadDataSources();
+      },
+      error: () => this.snackBar.open('Suppression impossible.', 'OK', { duration: 3000 }),
+    });
+  }
+
+  addDataSourceField(sourceIndex: number): void {
+    const source = this.dataSources()[sourceIndex];
+    if (!source) {
+      return;
+    }
+
+    this.updateDataSource(sourceIndex, {
+      availableFields: [...(source.availableFields ?? []), { path: '', label: '' }],
+    });
+    this.commitDataSource(sourceIndex);
+  }
+
+  updateDataSourceField(
+    sourceIndex: number,
+    fieldIndex: number,
+    patch: Partial<DataSourceFieldDefinition>,
+  ): void {
+    const source = this.dataSources()[sourceIndex];
+    const availableFields = [...(source?.availableFields ?? [])];
+
+    if (!availableFields[fieldIndex]) {
+      return;
+    }
+
+    availableFields[fieldIndex] = { ...availableFields[fieldIndex], ...patch };
+    this.updateDataSource(sourceIndex, { availableFields });
+  }
+
+  removeDataSourceField(sourceIndex: number, fieldIndex: number): void {
+    const source = this.dataSources()[sourceIndex];
+    const availableFields = [...(source?.availableFields ?? [])];
+
+    availableFields.splice(fieldIndex, 1);
+    this.updateDataSource(sourceIndex, { availableFields });
+    this.commitDataSource(sourceIndex);
+  }
+
+  /** Une détection est-elle en cours pour cette datasource ? */
+  isProbing(sourceId: string): boolean {
+    return this.probing().has(sourceId);
+  }
+
+  /**
+   * Appelle réellement l'URL de la datasource et remplit ses « champs disponibles » avec les
+   * clés effectivement présentes dans la réponse. C'est ce qui garantit que le mapping de
+   * résultat propose les vrais champs reçus, sans saisie manuelle.
+   */
+  detectFields(index: number): void {
+    const source = this.dataSources()[index];
+
+    if (!source?.url?.trim()) {
+      this.snackBar.open("Renseignez d'abord une URL pour cette source.", 'OK', { duration: 3000 });
+      return;
+    }
+
+    this.probing.update((set) => new Set(set).add(source.id));
+
+    const done = () =>
+      this.probing.update((set) => {
+        const next = new Set(set);
+        next.delete(source.id);
+        return next;
+      });
+
+    this.api.probeDataSourceFields(source.url, source.queryParam).subscribe({
+      next: (paths) => {
+        done();
+
+        if (!paths.length) {
+          this.snackBar.open('Aucun champ détecté (réponse vide ou inaccessible).', 'OK', { duration: 3000 });
+          return;
+        }
+
+        // Fusion : on garde les libellés déjà saisis, on ajoute les champs nouvellement détectés.
+        const existing = new Map((source.availableFields ?? []).map((f) => [f.path, f.label]));
+        const availableFields: DataSourceFieldDefinition[] = paths.map((path) => ({
+          path,
+          label: existing.get(path) || path,
+        }));
+
+        this.updateDataSource(index, { availableFields });
+        this.commitDataSource(index);
+        this.snackBar.open(`${paths.length} champ(s) détecté(s).`, 'OK', { duration: 2500 });
+      },
+      error: () => {
+        done();
+        this.snackBar.open('Détection impossible.', 'OK', { duration: 3000 });
+      },
+    });
+  }
+
+  /** Enregistre la source et rafraîchit la liste. Le back valide avant d'accepter. */
+  private persistDataSource(source: DataSourceDefinition): void {
+    this.api.saveDataSource(source).subscribe({
+      next: () => this.reloadDataSources(),
+      error: (err) => {
+        // Le back renvoie la liste des incohérences : plus utile qu'un « échec » générique.
+        const errors: string[] = err?.error?.errors ?? [];
+        this.snackBar.open(errors.length ? errors.join(' ') : "Échec de l'enregistrement.", 'OK', {
+          duration: 5000,
+        });
+      },
+    });
+  }
+
+  private uniqueDataSourceId(base: string): string {
+    const taken = new Set(this.dataSources().map((s) => s.id));
+
+    if (!taken.has(base)) {
+      return base;
+    }
+
+    let i = 2;
+    while (taken.has(`${base}${i}`)) {
+      i++;
+    }
+
+    return `${base}${i}`;
   }
 
   // ---------------------------------------------------------------------------

@@ -99,6 +99,16 @@ export class FieldPropertiesComponent {
    */
   readonly contextual = input(true);
 
+  /**
+   * Les propriétés qui définissent le champ (type, nom, libellé, options, datasource…)
+   * sont-elles modifiables ?
+   *
+   * Le builder les affiche en lecture seule : un champ se définit dans la bibliothèque, et le
+   * laisser diverger d'un formulaire à l'autre viderait celle-ci de son rôle de référence.
+   * La page /fields est le seul endroit où on l'édite.
+   */
+  readonly editableIdentity = input(true);
+
   private readonly state = inject(BuilderStateService);
 
   readonly fieldTypes = FIELD_TYPE_LIST;
@@ -123,6 +133,61 @@ export class FieldPropertiesComponent {
   readonly selectedDataSource = computed(
     () => this.dataSources().find((source) => source.id === this.field().dataSourceId) ?? null,
   );
+
+  // ---------------------------------------------------------------------------
+  // Lecture seule : le texte des propriétés qui définissent le champ.
+  // La mise en forme vit ici plutôt que dans le template, qui reste lisible.
+  // ---------------------------------------------------------------------------
+
+  /** Affiché quand une propriété n'est pas renseignée — jamais une ligne vide. */
+  private readonly empty = '—';
+
+  readonly typeLabel = computed(() => TYPE_LABELS[this.field().type] ?? this.field().type);
+
+  readonly dataSourceLabel = computed(() => {
+    const source = this.selectedDataSource();
+    if (source) {
+      return `${source.label} (${source.id})`;
+    }
+    return this.field().dataSourceId || this.empty;
+  });
+
+  /** « Particulier, Professionnel » — le détail des valeurs se lit dans la bibliothèque. */
+  readonly optionsSummary = computed(() => {
+    const options = this.field().options ?? [];
+    return options.length ? options.map((o) => o.label).join(', ') : this.empty;
+  });
+
+  /** « ville → adresse.ville » par règle. */
+  readonly mappingsSummary = computed(() => {
+    const mappings = this.field().resultMappings ?? [];
+    return mappings.length
+      ? mappings.map((m) => `${m.sourceField} → ${m.targetField}`)
+      : [];
+  });
+
+  /** Le lookup d'un autocomplete, résumé : cinq champs de saisie tiennent en une ligne. */
+  readonly lookupSummary = computed(() => {
+    const f = this.field();
+    const parts: string[] = [];
+
+    if (f.lookupUrl) parts.push(f.lookupUrl);
+    if (f.lookupKeyField || f.lookupValueField) {
+      parts.push(`${f.lookupKeyField ?? '?'} / ${f.lookupValueField ?? '?'}`);
+    }
+    if (f.lookupQueryParam && f.lookupQueryParam !== 'q') parts.push(`?${f.lookupQueryParam}=`);
+    if (f.lookupSource) parts.push(`legacy: ${f.lookupSource}`);
+
+    return parts.join(' · ');
+  });
+
+  /** Le champ porte-t-il un lookup à afficher ? Évite une ligne « Lookup — » inutile. */
+  readonly hasLookup = computed(() => this.lookupSummary().length > 0);
+
+  /** Une valeur affichable, ou le tiret cadratin si elle est vide. */
+  display(value: unknown): string {
+    return value === null || value === undefined || value === '' ? this.empty : String(value);
+  }
 
   readonly resultSourceOptions = computed(() => {
     const source = this.selectedDataSource();

@@ -27,109 +27,272 @@
   </div>
 }
 
-<main class="fl-layout">
-  <!-- ── Colonne 1 : les champs ─────────────────────────────────────────────── -->
-  <aside class="fl-col fl-col--list">
-    <div class="fl-list__head">
-      <h2 class="fl-col__title">Champs</h2>
-      <button mat-flat-button type="button" (click)="createNew()">
-        <mat-icon>add</mat-icon>
-        Nouveau
-      </button>
-    </div>
+<mat-tab-group class="fl-tabs">
+  <mat-tab label="Champs">
+      <main class="fl-layout">
+        <!-- ── Colonne 1 : les champs ─────────────────────────────────────────────── -->
+        <aside class="fl-col fl-col--list">
+          <div class="fl-list__head">
+            <h2 class="fl-col__title">Champs</h2>
+            <button mat-flat-button type="button" (click)="createNew()">
+              <mat-icon>add</mat-icon>
+              Nouveau
+            </button>
+          </div>
 
-    <p class="fl-hint">
-      Ces champs alimentent la palette du form builder. Un champ ajouté à un formulaire en est
-      une copie : le modifier ici ne touche pas les formulaires déjà construits.
-    </p>
+          <p class="fl-hint">
+            Ces champs alimentent la palette du form builder. Un champ ajouté à un formulaire en est
+            une copie : le modifier ici ne touche pas les formulaires déjà construits.
+          </p>
 
-    <mat-nav-list>
-      @for (def of fields(); track def.id) {
-        <a mat-list-item [class.fl-item--active]="draft()?.id === def.id" (click)="edit(def)">
-          <mat-icon matListItemIcon>{{ def.icon }}</mat-icon>
-          <span matListItemTitle>{{ def.label }}</span>
-          <span matListItemLine class="fl-item__meta">
-            {{ typeLabels[def.field.type] }} · {{ def.id }}
-          </span>
-          <button
-            matListItemMeta
-            mat-icon-button
-            type="button"
-            (click)="remove(def, $event)"
-            matTooltip="Supprimer">
-            <mat-icon>delete_outline</mat-icon>
-          </button>
-        </a>
-      } @empty {
-        <p class="fl-hint">Aucun champ. Créez-en un pour alimenter le builder.</p>
-      }
-    </mat-nav-list>
-  </aside>
+          <mat-nav-list>
+            @for (def of fields(); track def.id) {
+              <a mat-list-item [class.fl-item--active]="draft()?.id === def.id" (click)="edit(def)">
+                <mat-icon matListItemIcon>{{ def.icon }}</mat-icon>
+                <span matListItemTitle>{{ def.label }}</span>
+                <span matListItemLine class="fl-item__meta">
+                  {{ typeLabels[def.field.type] }} · {{ def.id }}
+                </span>
+                <button
+                  matListItemMeta
+                  mat-icon-button
+                  type="button"
+                  (click)="remove(def, $event)"
+                  matTooltip="Supprimer">
+                  <mat-icon>delete_outline</mat-icon>
+                </button>
+              </a>
+            } @empty {
+              <p class="fl-hint">Aucun champ. Créez-en un pour alimenter le builder.</p>
+            }
+          </mat-nav-list>
+        </aside>
 
-  <!-- ── Colonne 2 : l'éditeur ──────────────────────────────────────────────── -->
-  <section class="fl-col fl-col--editor">
-    @if (draft(); as d) {
-      <h2 class="fl-col__title">{{ isNew() ? 'Nouveau champ' : 'Modifier le champ' }}</h2>
+        <!-- ── Colonne 2 : l'éditeur ──────────────────────────────────────────────── -->
+        <section class="fl-col fl-col--editor">
+          @if (draft(); as d) {
+            <h2 class="fl-col__title">{{ isNew() ? 'Nouveau champ' : 'Modifier le champ' }}</h2>
 
-      <div class="fl-row">
-        <mat-form-field appearance="outline">
-          <mat-label>Libellé</mat-label>
-          <input
-            matInput
-            [ngModel]="d.label"
-            (ngModelChange)="patchDraft({ label: $event })"
-            placeholder="Nom du client" />
-          <mat-hint>Ce qu'affiche la palette du builder.</mat-hint>
-        </mat-form-field>
+            <div class="fl-row">
+              <mat-form-field appearance="outline">
+                <mat-label>Libellé</mat-label>
+                <input
+                  matInput
+                  [ngModel]="d.label"
+                  (ngModelChange)="patchDraft({ label: $event })"
+                  placeholder="Nom du client" />
+                <mat-hint>Ce qu'affiche la palette du builder.</mat-hint>
+              </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Identifiant</mat-label>
-          <input
-            matInput
-            [ngModel]="d.id"
-            (ngModelChange)="patchDraft({ id: $event })"
-            [readonly]="!isNew()" />
-          <mat-hint>Non modifiable après création.</mat-hint>
-        </mat-form-field>
-      </div>
+              <mat-form-field appearance="outline">
+                <mat-label>Identifiant</mat-label>
+                <input
+                  matInput
+                  [ngModel]="d.id"
+                  (ngModelChange)="patchDraft({ id: $event })"
+                  [readonly]="!isNew()" />
+                <mat-hint>Non modifiable après création.</mat-hint>
+              </mat-form-field>
+            </div>
 
-      <div class="fl-row">
-        <mat-form-field appearance="outline">
-          <mat-label>Icône Material</mat-label>
-          <input matInput [ngModel]="d.icon" (ngModelChange)="patchDraft({ icon: $event })" />
-          <mat-icon matSuffix>{{ d.icon }}</mat-icon>
-        </mat-form-field>
+            <div class="fl-row">
+              <mat-form-field appearance="outline">
+                <mat-label>Icône Material</mat-label>
+                <input matInput [ngModel]="d.icon" (ngModelChange)="patchDraft({ icon: $event })" />
+                <mat-icon matSuffix>{{ d.icon }}</mat-icon>
+              </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Description</mat-label>
-          <input
-            matInput
-            [ngModel]="d.description"
-            (ngModelChange)="patchDraft({ description: $event })" />
-        </mat-form-field>
-      </div>
+              <mat-form-field appearance="outline">
+                <mat-label>Description</mat-label>
+                <input
+                  matInput
+                  [ngModel]="d.description"
+                  (ngModelChange)="patchDraft({ description: $event })" />
+              </mat-form-field>
+            </div>
 
-      <!--
-        L'éditeur du builder, piloté par un state local : un champ se configure exactement
-        pareil ici et là-bas. La largeur et la condition d'affichage n'y sont pas : elles
-        dépendent du formulaire d'accueil.
-      -->
-      @if (editedField(); as field) {
-        <app-field-properties [path]="[0]" [field]="field" [contextual]="false" />
-      }
+            <!--
+              L'éditeur du builder, piloté par un state local : un champ se configure exactement
+              pareil ici et là-bas. La largeur et la condition d'affichage n'y sont pas : elles
+              dépendent du formulaire d'accueil.
+            -->
+            @if (editedField(); as field) {
+              <app-field-properties
+                [path]="[0]"
+                [field]="field"
+                [dataSources]="dataSources()"
+                [contextual]="false" />
+            }
 
-      <div class="fl-actions">
-        <button mat-button type="button" (click)="cancel()">Annuler</button>
-        <button mat-flat-button type="button" [disabled]="saving()" (click)="save()">
-          <mat-icon>save</mat-icon>
-          Enregistrer
+            <div class="fl-actions">
+              <button mat-button type="button" (click)="cancel()">Annuler</button>
+              <button mat-flat-button type="button" [disabled]="saving()" (click)="save()">
+                <mat-icon>save</mat-icon>
+                Enregistrer
+              </button>
+            </div>
+          } @else {
+            <div class="fl-placeholder">
+              <mat-icon>library_books</mat-icon>
+              <p>Sélectionnez un champ à gauche, ou créez-en un nouveau.</p>
+            </div>
+          }
+        </section>
+      </main>
+  </mat-tab>
+
+  <mat-tab label="Data sources">
+    <section class="fl-data-sources">
+      <div class="fl-list__head">
+        <h2 class="fl-col__title">Sources de données</h2>
+        <button mat-flat-button type="button" (click)="addDataSource()">
+          <mat-icon>add</mat-icon>
+          Ajouter une source
         </button>
       </div>
-    } @else {
-      <div class="fl-placeholder">
-        <mat-icon>library_books</mat-icon>
-        <p>Sélectionnez un champ à gauche, ou créez-en un nouveau.</p>
-      </div>
-    }
-  </section>
-</main>
+
+      <p class="fl-hint">
+        Une source décrit un appel d'API réutilisable. Les champs autocomplete et select la
+        référencent par identifiant, et le mapping de résultat pioche dans les champs reçus
+        (détectez-les depuis la réponse avec « Détecter les champs »).
+      </p>
+
+      @for (source of dataSources(); track source.id; let sourceIndex = $index) {
+        <div class="fl-data-source">
+          <div class="fl-data-source__head">
+            <strong>{{ source.label || source.id }}</strong>
+            <button
+              mat-icon-button
+              type="button"
+              color="warn"
+              matTooltip="Supprimer"
+              (click)="removeDataSource(sourceIndex)">
+              <mat-icon>delete_outline</mat-icon>
+            </button>
+          </div>
+
+          <div class="fl-data-source__grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Libellé</mat-label>
+              <input
+                matInput
+                [ngModel]="source.label"
+                (ngModelChange)="updateDataSource(sourceIndex, { label: $event })"
+                (blur)="commitDataSource(sourceIndex, source.id)" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Identifiant</mat-label>
+              <input
+                matInput
+                [ngModel]="source.id"
+                (ngModelChange)="updateDataSource(sourceIndex, { id: $event })"
+                (blur)="commitDataSource(sourceIndex, source.id)" />
+              <mat-hint>Ce que les champs référencent.</mat-hint>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="fl-data-source__full">
+              <mat-label>URL</mat-label>
+              <input
+                matInput
+                [ngModel]="source.url"
+                (ngModelChange)="updateDataSource(sourceIndex, { url: $event })"
+                (blur)="commitDataSource(sourceIndex, source.id)"
+                placeholder="/api/referentials/pays/search" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Query param</mat-label>
+              <input
+                matInput
+                [ngModel]="source.queryParam"
+                (ngModelChange)="updateDataSource(sourceIndex, { queryParam: $event })"
+                (blur)="commitDataSource(sourceIndex, source.id)"
+                placeholder="q" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Champ valeur</mat-label>
+              <input
+                matInput
+                [ngModel]="source.valueField"
+                (ngModelChange)="updateDataSource(sourceIndex, { valueField: $event })"
+                (blur)="commitDataSource(sourceIndex, source.id)"
+                placeholder="id" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Champ affiché</mat-label>
+              <input
+                matInput
+                [ngModel]="source.displayField"
+                (ngModelChange)="updateDataSource(sourceIndex, { displayField: $event })"
+                (blur)="commitDataSource(sourceIndex, source.id)"
+                placeholder="label" />
+            </mat-form-field>
+          </div>
+
+          <div class="fl-data-source__fields">
+            <div class="fl-data-source__fields-head">
+              <span>Champs disponibles pour les mappings</span>
+              <div class="fl-data-source__actions">
+                <button
+                  mat-flat-button
+                  type="button"
+                  [disabled]="isProbing(source.id) || !source.url.trim()"
+                  (click)="detectFields(sourceIndex)">
+                  <mat-icon>{{ isProbing(source.id) ? 'hourglass_empty' : 'sync' }}</mat-icon>
+                  Détecter les champs
+                </button>
+                <button mat-stroked-button type="button" (click)="addDataSourceField(sourceIndex)">
+                  <mat-icon>add</mat-icon>
+                  Ajouter un champ
+                </button>
+              </div>
+            </div>
+
+            @for (fieldDef of source.availableFields ?? []; track $index; let fieldIndex = $index) {
+              <div class="fl-data-source__field-row">
+                <mat-form-field appearance="outline">
+                  <mat-label>Label</mat-label>
+                  <input
+                    matInput
+                    [ngModel]="fieldDef.label"
+                    (ngModelChange)="updateDataSourceField(sourceIndex, fieldIndex, { label: $event })"
+                    (blur)="commitDataSource(sourceIndex, source.id)" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Path</mat-label>
+                  <input
+                    matInput
+                    [ngModel]="fieldDef.path"
+                    (ngModelChange)="updateDataSourceField(sourceIndex, fieldIndex, { path: $event })"
+                    (blur)="commitDataSource(sourceIndex, source.id)"
+                    placeholder="address.city" />
+                </mat-form-field>
+
+                <button
+                  mat-icon-button
+                  type="button"
+                  color="warn"
+                  (click)="removeDataSourceField(sourceIndex, fieldIndex)">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            } @empty {
+              <p class="fl-hint">
+                Aucun champ. « Détecter les champs » les lit depuis la réponse de l'API, ou
+                ajoutez-les à la main.
+              </p>
+            }
+          </div>
+        </div>
+      } @empty {
+        <p class="fl-hint">
+          Aucune source de données. Ajoutez-en une pour alimenter les champs autocomplete et select.
+        </p>
+      }
+    </section>
+  </mat-tab>
+</mat-tab-group>
