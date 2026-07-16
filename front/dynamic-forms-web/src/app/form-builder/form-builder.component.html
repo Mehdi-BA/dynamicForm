@@ -9,6 +9,11 @@
       Voir la démo
     </button>
 
+    <button mat-button routerLink="/fields">
+      <mat-icon>library_books</mat-icon>
+      Champs
+    </button>
+
     <button
       mat-flat-button
       class="fb-toolbar__save"
@@ -69,17 +74,30 @@
     <h2 class="fb-col__title">Ajouter un champ</h2>
 
     <div class="fb-palette">
-      @for (t of fieldTypes; track t.type) {
+      @for (def of fieldLibrary(); track def.id) {
         <button
           mat-stroked-button
           type="button"
           class="fb-palette__item"
-          (click)="state.addField(t.type)">
-          <mat-icon>{{ t.icon }}</mat-icon>
-          <span>{{ t.label }}</span>
+          [matTooltip]="def.description ?? ''"
+          (click)="state.addFieldFromLibrary(def)">
+          <mat-icon>{{ def.icon }}</mat-icon>
+          <span>{{ def.label }}</span>
         </button>
+      } @empty {
+        <!-- Sans bibliothèque, le builder ne peut rien produire : on montre la sortie. -->
+        <p class="fb-hint">Aucun champ dans la bibliothèque.</p>
+        <a mat-stroked-button routerLink="/fields">
+          <mat-icon>library_add</mat-icon>
+          Définir des champs
+        </a>
       }
     </div>
+
+    <a mat-button class="fb-palette__manage" routerLink="/fields">
+      <mat-icon>tune</mat-icon>
+      Gérer la bibliothèque
+    </a>
   </aside>
 
   <!-- ── Colonne 2 : structure + aperçu ─────────────────────────────────────── -->
@@ -221,7 +239,10 @@
               <p>Aucun champ. Choisissez un type dans la palette à gauche.</p>
             </div>
           } @else {
-            <app-field-tree [fields]="state.schema().fields" [parentPath]="[]" />
+            <app-field-tree
+              [fields]="state.schema().fields"
+              [parentPath]="[]"
+              [library]="fieldLibrary()" />
           }
         </div>
       </mat-tab>

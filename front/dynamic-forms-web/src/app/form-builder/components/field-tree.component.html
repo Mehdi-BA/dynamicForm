@@ -59,7 +59,10 @@
       @if (isContainer(field)) {
         <div class="node__children">
           @if (childrenOf(field); as children) {
-            <app-field-tree [fields]="children" [parentPath]="pathOf($index)" />
+            <app-field-tree
+              [fields]="children"
+              [parentPath]="pathOf($index)"
+              [library]="library()" />
           } @else {
             <p class="node__empty">Conteneur vide — utilisez « + » pour ajouter un champ.</p>
           }
@@ -76,10 +79,14 @@
 -->
 <mat-menu #addMenu="matMenu">
   <ng-template matMenuContent let-parentPath="parentPath">
-    @for (t of fieldTypes; track t.type) {
-      <button mat-menu-item type="button" (click)="state.addField(t.type, parentPath)">
-        <mat-icon>{{ t.icon }}</mat-icon>
-        <span>{{ t.label }}</span>
+    @for (def of library(); track def.id) {
+      <button mat-menu-item type="button" (click)="state.addFieldFromLibrary(def, parentPath)">
+        <mat-icon>{{ def.icon }}</mat-icon>
+        <span>{{ def.label }}</span>
+      </button>
+    } @empty {
+      <button mat-menu-item type="button" disabled>
+        <span>Bibliothèque vide</span>
       </button>
     }
   </ng-template>

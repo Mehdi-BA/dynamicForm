@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { catchError, map, Observable, of } from 'rxjs';
-import { FormSchema } from '../models/form-schema.model';
+import { FieldDefinition, FormSchema } from '../models/form-schema.model';
 
 export interface FormSummary {
   id: string;
@@ -54,6 +54,28 @@ export class FormApiService {
   /** Enregistre un schéma construit par le form builder. Le back le valide avant d'accepter. */
   saveSchema(schema: FormSchema): Observable<FormSchema> {
     return this.http.put<FormSchema>(`${API}/forms/${schema.id}`, schema);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Bibliothèque de champs — la palette du builder, gérée par la page /fields
+  // ---------------------------------------------------------------------------
+
+  /** Les champs métier disponibles, en entier : la palette a besoin du modèle à copier. */
+  listFields(): Observable<FieldDefinition[]> {
+    return this.http.get<FieldDefinition[]>(`${API}/fields`);
+  }
+
+  getField(id: string): Observable<FieldDefinition> {
+    return this.http.get<FieldDefinition>(`${API}/fields/${id}`);
+  }
+
+  /** Crée ou remplace un champ de la bibliothèque. Le back le valide avant d'accepter. */
+  saveField(field: FieldDefinition): Observable<FieldDefinition> {
+    return this.http.put<FieldDefinition>(`${API}/fields/${field.id}`, field);
+  }
+
+  deleteField(id: string): Observable<void> {
+    return this.http.delete<void>(`${API}/fields/${id}`);
   }
 
   deleteSchema(id: string): Observable<void> {

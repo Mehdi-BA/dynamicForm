@@ -1,0 +1,113 @@
+.fl-toolbar__title {
+  font-weight: 500;
+}
+
+.fl-toolbar__spacer {
+  flex: 1;
+}
+
+.fl-errors {
+  display: flex;
+  gap: 0.75rem;
+  margin: 1rem 1.5rem 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid #f2b8b5;
+  border-radius: 8px;
+  background: #fce8e6;
+  color: #8c1d18;
+
+  ul {
+    margin: 0.25rem 0 0;
+    padding-left: 1.25rem;
+  }
+}
+
+.fl-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 2fr;
+  gap: 1.5rem;
+  align-items: start;
+  padding: 1.5rem;
+}
+
+.fl-col__title {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mat-sys-primary, #1976d2);
+}
+
+.fl-col--editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+// ── Liste ─────────────────────────────────────────────────────────────────────
+
+.fl-list__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.fl-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--mat-sys-on-surface-variant, rgb(0 0 0 / 0.6));
+}
+
+.fl-item--active {
+  background: var(--mat-sys-secondary-container, rgb(25 118 210 / 0.08));
+}
+
+.fl-item__meta {
+  font-size: 0.6875rem;
+  color: var(--mat-sys-on-surface-variant, rgb(0 0 0 / 0.6));
+}
+
+// ── Éditeur ───────────────────────────────────────────────────────────────────
+
+.fl-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.fl-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.fl-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 4rem 1rem;
+  text-align: center;
+  color: var(--mat-sys-on-surface-variant, rgb(0 0 0 / 0.6));
+
+  mat-icon {
+    font-size: 2.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    opacity: 0.5;
+  }
+}
+
+@media (max-width: 900px) {
+  .fl-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .fl-row {
+    grid-template-columns: 1fr;
+  }
+}

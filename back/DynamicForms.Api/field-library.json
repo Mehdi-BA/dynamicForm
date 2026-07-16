@@ -1,0 +1,177 @@
+[
+  {
+    "id": "adresse",
+    "label": "Adresse",
+    "icon": "home",
+    "description": "Bloc complet : rue, ville, code postal.",
+    "field": {
+      "type": "group",
+      "name": "adresse",
+      "label": "Adresse",
+      "disabled": false,
+      "cols": 12,
+      "validators": [],
+      "fields": [
+        {
+          "type": "text",
+          "name": "rue",
+          "label": "Rue",
+          "disabled": false,
+          "cols": 12,
+          "validators": [
+            {
+              "type": "required"
+            }
+          ],
+          "initialItems": 0
+        },
+        {
+          "type": "text",
+          "name": "ville",
+          "label": "Ville",
+          "disabled": false,
+          "cols": 6,
+          "validators": [
+            {
+              "type": "required"
+            }
+          ],
+          "initialItems": 0
+        },
+        {
+          "type": "text",
+          "name": "codePostal",
+          "label": "Code postal",
+          "disabled": false,
+          "cols": 6,
+          "validators": [
+            {
+              "type": "pattern",
+              "value": "^[0-9]{4}$",
+              "message": "4 chiffres attendus"
+            }
+          ],
+          "initialItems": 0
+        }
+      ],
+      "initialItems": 0
+    }
+  },
+  {
+    "id": "dateNaissance",
+    "label": "Date de naissance",
+    "icon": "calendar_today",
+    "field": {
+      "type": "date",
+      "name": "dateNaissance",
+      "label": "Date de naissance",
+      "disabled": false,
+      "cols": 12,
+      "validators": [],
+      "initialItems": 0
+    }
+  },
+  {
+    "id": "email",
+    "label": "Email",
+    "icon": "alternate_email",
+    "description": "Adresse email, format v\u00E9rifi\u00E9.",
+    "field": {
+      "type": "email",
+      "name": "email",
+      "label": "Email",
+      "disabled": false,
+      "cols": 12,
+      "validators": [
+        {
+          "type": "required"
+        },
+        {
+          "type": "email"
+        }
+      ],
+      "initialItems": 0
+    }
+  },
+  {
+    "id": "nom",
+    "label": "Nom",
+    "icon": "person",
+    "description": "Nom de famille.",
+    "field": {
+      "type": "text",
+      "name": "nom",
+      "label": "Nom",
+      "disabled": false,
+      "cols": 12,
+      "validators": [
+        {
+          "type": "required"
+        }
+      ],
+      "initialItems": 0
+    }
+  },
+  {
+    "id": "notes",
+    "label": "Notes",
+    "icon": "notes",
+    "field": {
+      "type": "textarea",
+      "name": "notes",
+      "label": "Notes",
+      "disabled": false,
+      "cols": 12,
+      "validators": [
+        {
+          "type": "maxLength",
+          "value": 500
+        }
+      ],
+      "initialItems": 0
+    }
+  },
+  {
+    "id": "prenom",
+    "label": "Pr\u00E9nom",
+    "icon": "badge",
+    "field": {
+      "type": "text",
+      "name": "prenom",
+      "label": "Pr\u00E9nom",
+      "disabled": false,
+      "cols": 12,
+      "validators": [
+        {
+          "type": "required"
+        },
+        {
+          "type": "minLength",
+          "value": 2
+        }
+      ],
+      "initialItems": 0
+    }
+  },
+  {
+    "id": "telephone",
+    "label": "T\u00E9l\u00E9phone",
+    "icon": "call",
+    "field": {
+      "type": "text",
+      "name": "telephone",
+      "label": "T\u00E9l\u00E9phone",
+      "placeholder": "\u002B216 20 000 000",
+      "disabled": false,
+      "cols": 12,
+      "validators": [
+        {
+          "type": "pattern",
+          "value": "^\\\u002B?[0-9 ]{8,15}$",
+          "message": "Num\u00E9ro de t\u00E9l\u00E9phone invalide"
+        }
+      ],
+      "initialItems": 0
+    }
+  }
+]

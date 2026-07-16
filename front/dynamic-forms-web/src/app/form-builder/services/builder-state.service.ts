@@ -1,5 +1,11 @@
 import { computed, Injectable, signal } from '@angular/core';
-import { DataSourceDefinition, FieldSchema, FieldType, FormSchema } from '../../dynamic-form/models/form-schema.model';
+import {
+  DataSourceDefinition,
+  FieldDefinition,
+  FieldSchema,
+  FieldType,
+  FormSchema,
+} from '../../dynamic-form/models/form-schema.model';
 
 /**
  * État du form builder : l'arbre de champs en cours de construction.
@@ -11,29 +17,45 @@ import { DataSourceDefinition, FieldSchema, FieldType, FormSchema } from '../../
  */
 export type FieldPath = number[];
 
-/** Types proposés dans la palette, avec de quoi les afficher. */
-export interface FieldTypeInfo {
-  type: FieldType;
-  label: string;
-  icon: string;
-  /** Un conteneur porte des sous-champs. */
-  container?: boolean;
-}
+/**
+ * Icône par type de champ, pour l'arbre du builder.
+ *
+ * La palette, elle, affiche l'icône portée par le champ de la bibliothèque. Mais une fois
+ * copié, le champ en est indépendant : son icône ne peut plus venir de là, et son type reste
+ * la seule information sûre.
+ */
+export const TYPE_ICONS: Record<FieldType, string> = {
+  text: 'short_text',
+  textarea: 'notes',
+  number: 'pin',
+  email: 'alternate_email',
+  password: 'password',
+  select: 'arrow_drop_down_circle',
+  radio: 'radio_button_checked',
+  checkbox: 'check_box',
+  date: 'calendar_today',
+  autocomplete: 'search',
+  group: 'folder',
+  array: 'format_list_numbered',
+};
 
-export const FIELD_TYPES: FieldTypeInfo[] = [
-  { type: 'text', label: 'Texte', icon: 'short_text' },
-  { type: 'textarea', label: 'Texte long', icon: 'notes' },
-  { type: 'number', label: 'Nombre', icon: 'pin' },
-  { type: 'email', label: 'Email', icon: 'alternate_email' },
-  { type: 'password', label: 'Mot de passe', icon: 'password' },
-  { type: 'select', label: 'Liste déroulante', icon: 'arrow_drop_down_circle' },
-  { type: 'radio', label: 'Choix unique', icon: 'radio_button_checked' },
-  { type: 'checkbox', label: 'Case à cocher', icon: 'check_box' },
-  { type: 'date', label: 'Date', icon: 'calendar_today' },
-  { type: 'autocomplete', label: 'Autocomplétion', icon: 'search' },
-  { type: 'group', label: 'Sous-formulaire', icon: 'folder', container: true },
-  { type: 'array', label: 'Liste répétable', icon: 'format_list_numbered', container: true },
-];
+/** Libellé lisible d'un type — utilisé par la page de la bibliothèque. */
+export const TYPE_LABELS: Record<FieldType, string> = {
+  text: 'Texte',
+  textarea: 'Texte long',
+  number: 'Nombre',
+  email: 'Email',
+  password: 'Mot de passe',
+  select: 'Liste déroulante',
+  radio: 'Choix unique',
+  checkbox: 'Case à cocher',
+  date: 'Date',
+  autocomplete: 'Autocomplétion',
+  group: 'Sous-formulaire',
+  array: 'Liste répétable',
+};
+
+export const FIELD_TYPE_LIST = Object.keys(TYPE_LABELS) as FieldType[];
 
 @Injectable()
 export class BuilderStateService {
@@ -146,7 +168,13 @@ export class BuilderStateService {
    * Ajoute un champ. `parentPath` vide = à la racine ; sinon dans le group/array visé.
    * Le nouveau champ est sélectionné, pour qu'on puisse le configurer immédiatement.
    */
-  addField(type: FieldType, parentPath: FieldPath = []): void {
+  /**
+   * Ajoute un champ depuis la bibliothèque. `parentPath` vide = à la racine ; sinon dans le
+   * group/array visé. Le nouveau champ est sélectionné, pour qu'on puisse le configurer.
+   *
+   * C'est une **copie** : le champ posé est ensuite indépendant de la bibliothèque.
+   */
+  addFieldFromLibrary(definition: FieldDefinition, parentPath: FieldPath = []): void {
     const next = structuredClone(this.schemaSignal());
     const siblings = this.childrenAt(next, parentPath);
 
@@ -154,7 +182,19 @@ export class BuilderStateService {
       return;
     }
 
-    const field = this.newField(type, this.uniqueName(type, siblings));
+    const field = structuredClone(definition.field);
+
+    // Deux fois le même champ dans un formulaire : `email` puis `email2`. Le back refuse
+    // les noms dupliqués au même niveau.
+    field.name = this.uniqueName(field.name, siblings);
+
+    // Largeur et condition dépendent du formulaire d'accueil, pas du champ : la bibliothèque
+    // n'a pas voix au chapitre.
+    field.cols ??= 12;
+    delete field.visibleIf;
+
+    // Pas de normalizeForType ici : le modèle vient de la bibliothèque, qui l'a validé à
+    // l'enregistrement. Le normaliser viderait les validateurs d'un conteneur (cf. plus bas).
     siblings.push(field);
 
     this.schemaSignal.set(next);
@@ -292,21 +332,6 @@ export class BuilderStateService {
   // ---------------------------------------------------------------------------
   // Fabrication de champs
   // ---------------------------------------------------------------------------
-
-  private newField(type: FieldType, name: string): FieldSchema {
-    const info = FIELD_TYPES.find((t) => t.type === type);
-
-    const field: FieldSchema = {
-      type,
-      name,
-      label: info?.label ?? name,
-      cols: 12,
-      validators: [],
-    };
-
-    this.normalizeForType(field);
-    return field;
-  }
 
   /** Aligne les propriétés du champ sur ce que son type exige, et purge le reste. */
   private normalizeForType(field: FieldSchema): void {

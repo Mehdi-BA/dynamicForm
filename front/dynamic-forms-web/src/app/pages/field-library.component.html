@@ -1,0 +1,135 @@
+<mat-toolbar color="primary" class="fl-toolbar">
+  <span class="fl-toolbar__title">Bibliothèque de champs</span>
+
+  <span class="fl-toolbar__spacer"></span>
+
+  <button mat-button routerLink="/">
+    <mat-icon>visibility</mat-icon>
+    Voir la démo
+  </button>
+  <button mat-button routerLink="/builder">
+    <mat-icon>build</mat-icon>
+    Form Builder
+  </button>
+</mat-toolbar>
+
+@if (errors().length) {
+  <div class="fl-errors" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    <div>
+      <strong>Le champ a été refusé :</strong>
+      <ul>
+        @for (error of errors(); track error) {
+          <li>{{ error }}</li>
+        }
+      </ul>
+    </div>
+  </div>
+}
+
+<main class="fl-layout">
+  <!-- ── Colonne 1 : les champs ─────────────────────────────────────────────── -->
+  <aside class="fl-col fl-col--list">
+    <div class="fl-list__head">
+      <h2 class="fl-col__title">Champs</h2>
+      <button mat-flat-button type="button" (click)="createNew()">
+        <mat-icon>add</mat-icon>
+        Nouveau
+      </button>
+    </div>
+
+    <p class="fl-hint">
+      Ces champs alimentent la palette du form builder. Un champ ajouté à un formulaire en est
+      une copie : le modifier ici ne touche pas les formulaires déjà construits.
+    </p>
+
+    <mat-nav-list>
+      @for (def of fields(); track def.id) {
+        <a mat-list-item [class.fl-item--active]="draft()?.id === def.id" (click)="edit(def)">
+          <mat-icon matListItemIcon>{{ def.icon }}</mat-icon>
+          <span matListItemTitle>{{ def.label }}</span>
+          <span matListItemLine class="fl-item__meta">
+            {{ typeLabels[def.field.type] }} · {{ def.id }}
+          </span>
+          <button
+            matListItemMeta
+            mat-icon-button
+            type="button"
+            (click)="remove(def, $event)"
+            matTooltip="Supprimer">
+            <mat-icon>delete_outline</mat-icon>
+          </button>
+        </a>
+      } @empty {
+        <p class="fl-hint">Aucun champ. Créez-en un pour alimenter le builder.</p>
+      }
+    </mat-nav-list>
+  </aside>
+
+  <!-- ── Colonne 2 : l'éditeur ──────────────────────────────────────────────── -->
+  <section class="fl-col fl-col--editor">
+    @if (draft(); as d) {
+      <h2 class="fl-col__title">{{ isNew() ? 'Nouveau champ' : 'Modifier le champ' }}</h2>
+
+      <div class="fl-row">
+        <mat-form-field appearance="outline">
+          <mat-label>Libellé</mat-label>
+          <input
+            matInput
+            [ngModel]="d.label"
+            (ngModelChange)="patchDraft({ label: $event })"
+            placeholder="Nom du client" />
+          <mat-hint>Ce qu'affiche la palette du builder.</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Identifiant</mat-label>
+          <input
+            matInput
+            [ngModel]="d.id"
+            (ngModelChange)="patchDraft({ id: $event })"
+            [readonly]="!isNew()" />
+          <mat-hint>Non modifiable après création.</mat-hint>
+        </mat-form-field>
+      </div>
+
+      <div class="fl-row">
+        <mat-form-field appearance="outline">
+          <mat-label>Icône Material</mat-label>
+          <input matInput [ngModel]="d.icon" (ngModelChange)="patchDraft({ icon: $event })" />
+          <mat-icon matSuffix>{{ d.icon }}</mat-icon>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Description</mat-label>
+          <input
+            matInput
+            [ngModel]="d.description"
+            (ngModelChange)="patchDraft({ description: $event })" />
+        </mat-form-field>
+      </div>
+
+      <!--
+        L'éditeur du builder, piloté par un state local : un champ se configure exactement
+        pareil ici et là-bas. La largeur et la condition d'affichage n'y sont pas : elles
+        dépendent du formulaire d'accueil.
+      -->
+      @if (editedField(); as field) {
+        <app-field-properties [path]="[0]" [field]="field" [contextual]="false" />
+      }
+
+      <div class="fl-actions">
+        <button mat-button type="button" (click)="cancel()">Annuler</button>
+        <button mat-flat-button type="button" [disabled]="saving()" (click)="save()">
+          <mat-icon>save</mat-icon>
+          Enregistrer
+        </button>
+      </div>
+    } @else {
+      <div class="fl-placeholder">
+        <mat-icon>library_books</mat-icon>
+        <p>Sélectionnez un champ à gauche, ou créez-en un nouveau.</p>
+      </div>
+    }
+  </section>
+</main>

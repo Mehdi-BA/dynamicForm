@@ -10,5 +10,10 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./form-builder/form-builder.component').then((m) => m.FormBuilderComponent),
   },
+  {
+    path: 'fields',
+    loadComponent: () =>
+      import('./pages/field-library.component').then((m) => m.FieldLibraryComponent),
+  },
   { path: '**', redirectTo: '' },
 ];

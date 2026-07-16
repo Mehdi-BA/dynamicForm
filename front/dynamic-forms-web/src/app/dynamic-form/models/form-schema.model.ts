@@ -25,6 +25,26 @@ export interface FormSchema {
   dataSources?: DataSourceDefinition[];
 }
 
+/**
+ * Un champ métier de la bibliothèque : le modèle réutilisable à partir duquel le form builder
+ * compose ses formulaires.
+ *
+ * Le builder en fait une **copie** : une fois posé, le champ est indépendant de la
+ * bibliothèque. `field.cols` et `field.visibleIf` sont ignorés à la copie — ils dépendent du
+ * formulaire d'accueil, pas du champ.
+ */
+export interface FieldDefinition {
+  /** Référence stable ('nom', 'adresse'). */
+  id: string;
+  /** Ce qu'affiche la palette du builder. */
+  label: string;
+  /** Icône Material affichée dans la palette. */
+  icon: string;
+  description?: string;
+  /** Le modèle copié dans le formulaire. */
+  field: FieldSchema;
+}
+
 export interface FieldSchema {
   type: FieldType;
   name: string;

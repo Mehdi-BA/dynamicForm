@@ -22,12 +22,18 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { DynamicFormComponent } from '../dynamic-form/components/dynamic-form.component';
-import { DataSourceDefinition, DataSourceFieldDefinition, FieldSchema, FormSchema } from '../dynamic-form/models/form-schema.model';
+import {
+  DataSourceDefinition,
+  DataSourceFieldDefinition,
+  FieldDefinition,
+  FieldSchema,
+  FormSchema,
+} from '../dynamic-form/models/form-schema.model';
 import { FormApiService, FormSummary } from '../dynamic-form/services/form-api.service';
 import { FieldPropertiesComponent } from './components/field-properties.component';
 import { SaveAsDialogComponent } from './components/save-as-dialog.component';
 import { FieldTreeComponent } from './components/field-tree.component';
-import { BuilderStateService, FIELD_TYPES } from './services/builder-state.service';
+import { BuilderStateService } from './services/builder-state.service';
 
 /**
  * Le form builder : on construit le schéma à la souris, l'aperçu se met à jour en direct.
@@ -69,7 +75,8 @@ export class FormBuilderComponent {
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
 
-  readonly fieldTypes = FIELD_TYPES;
+  /** La palette : les champs métier de la bibliothèque, gérée par la page /fields. */
+  readonly fieldLibrary = signal<FieldDefinition[]>([]);
 
   readonly existingForms = signal<FormSummary[]>([]);
   readonly lookupSources = signal<string[]>([]);
@@ -99,6 +106,7 @@ export class FormBuilderComponent {
   constructor() {
     this.api.listForms().subscribe((forms) => this.existingForms.set(forms));
     this.api.listLookupSources().subscribe((sources) => this.lookupSources.set(sources));
+    this.api.listFields().subscribe((fields) => this.fieldLibrary.set(fields));
 
     // Repartir d'un groupe neuf quand la structure des champs change (ajout, suppression,
     // renommage). Suivre le schéma entier rappellerait à chaque frappe dans un libellé.

@@ -7,8 +7,8 @@
     <mat-select
       [value]="field().type"
       (valueChange)="onTypeChange($event)">
-      @for (t of fieldTypes; track t.type) {
-        <mat-option [value]="t.type">{{ t.label }}</mat-option>
+      @for (t of fieldTypes; track t) {
+        <mat-option [value]="t">{{ typeLabels[t] }}</mat-option>
       }
     </mat-select>
   </mat-form-field>
@@ -43,12 +43,15 @@
     </mat-form-field>
   }
 
-  <label class="props__slider-label" for="cols">
-    Largeur : {{ field().cols ?? 12 }} / 12 colonnes
-  </label>
-  <mat-slider id="cols" min="1" max="12" step="1" discrete>
-    <input matSliderThumb [value]="field().cols ?? 12" (valueChange)="patch({ cols: $event })" />
-  </mat-slider>
+  <!-- La largeur dépend du formulaire d'accueil : hors sujet pour un modèle de bibliothèque. -->
+  @if (contextual()) {
+    <label class="props__slider-label" for="cols">
+      Largeur : {{ field().cols ?? 12 }} / 12 colonnes
+    </label>
+    <mat-slider id="cols" min="1" max="12" step="1" discrete>
+      <input matSliderThumb [value]="field().cols ?? 12" (valueChange)="patch({ cols: $event })" />
+    </mat-slider>
+  }
 
   <!-- ── Autocomplete ─────────────────────────────────────────────────────── -->
   @if (field().type === 'autocomplete' || field().type === 'select') {
@@ -260,84 +263,88 @@
     }
   }
 
-  <!-- ── Condition d'affichage ────────────────────────────────────────────── -->
-  <mat-divider />
-  <h3 class="props__title">Affichage conditionnel</h3>
+  <!-- La condition dépend du formulaire d'accueil : hors sujet pour un modèle. -->
+  @if (contextual()) {
+    <!-- ── Condition d'affichage ────────────────────────────────────────────── -->
+    <mat-divider />
+    <h3 class="props__title">Affichage conditionnel</h3>
 
-  @if (conditionTargets().length === 0) {
-    <p class="props__note">
-      Aucun autre champ à observer. Ajoutez d'abord un champ dont dépendra celui-ci.
-    </p>
-  } @else {
-    <mat-checkbox
-      [checked]="conditionEnabled()"
-      (change)="toggleCondition($event.checked)">
-      N'afficher ce champ que sous condition
-    </mat-checkbox>
-
-    @if (conditionEnabled()) {
-      @if (conditionRules().length > 1) {
-        <mat-form-field appearance="outline" class="props__mode">
-          <mat-label>Les règles doivent</mat-label>
-          <mat-select [value]="conditionMode()" (valueChange)="setMode($event)">
-            <mat-option value="and">toutes être vraies (ET)</mat-option>
-            <mat-option value="or">au moins une être vraie (OU)</mat-option>
-          </mat-select>
-        </mat-form-field>
-      }
-
-      @for (rule of conditionRules(); track $index) {
-        <div class="props__rule">
-          <div class="props__rule-head">
-            <span class="props__rule-index">Règle {{ $index + 1 }}</span>
-            <button
-              mat-icon-button
-              type="button"
-              color="warn"
-              [attr.aria-label]="'Supprimer la règle ' + ($index + 1)"
-              (click)="removeRule($index)">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Si le champ</mat-label>
-            <mat-select [value]="rule.field" (valueChange)="setRule($index, { field: $event })">
-              @for (target of conditionTargets(); track target.path) {
-                <mat-option [value]="target.path">{{ target.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Condition</mat-label>
-            <mat-select [value]="rule.op" (valueChange)="setRule($index, { op: $event })">
-              @for (o of operators; track o.op) {
-                <mat-option [value]="o.op">{{ o.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-
-          @if (ruleNeedsValue(rule)) {
-            <mat-form-field appearance="outline">
-              <mat-label>Valeur</mat-label>
-              <input
-                matInput
-                [ngModel]="rule.value"
-                (ngModelChange)="setRule($index, { value: $event })" />
-            </mat-form-field>
-          }
-        </div>
-      }
-
-      <button mat-stroked-button type="button" (click)="addRule()">
-        <mat-icon>add</mat-icon>
-        Ajouter une règle
-      </button>
-
+    @if (conditionTargets().length === 0) {
       <p class="props__note">
-        Un champ masqué est désactivé : il sort du payload et ne bloque plus la validation.
+        Aucun autre champ à observer. Ajoutez d'abord un champ dont dépendra celui-ci.
       </p>
+    } @else {
+      <mat-checkbox
+        [checked]="conditionEnabled()"
+        (change)="toggleCondition($event.checked)">
+        N'afficher ce champ que sous condition
+      </mat-checkbox>
+
+      @if (conditionEnabled()) {
+        @if (conditionRules().length > 1) {
+          <mat-form-field appearance="outline" class="props__mode">
+            <mat-label>Les règles doivent</mat-label>
+            <mat-select [value]="conditionMode()" (valueChange)="setMode($event)">
+              <mat-option value="and">toutes être vraies (ET)</mat-option>
+              <mat-option value="or">au moins une être vraie (OU)</mat-option>
+            </mat-select>
+          </mat-form-field>
+        }
+
+        @for (rule of conditionRules(); track $index) {
+          <div class="props__rule">
+            <div class="props__rule-head">
+              <span class="props__rule-index">Règle {{ $index + 1 }}</span>
+              <button
+                mat-icon-button
+                type="button"
+                color="warn"
+                [attr.aria-label]="'Supprimer la règle ' + ($index + 1)"
+                (click)="removeRule($index)">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Si le champ</mat-label>
+              <mat-select [value]="rule.field" (valueChange)="setRule($index, { field: $event })">
+                @for (target of conditionTargets(); track target.path) {
+                  <mat-option [value]="target.path">{{ target.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Condition</mat-label>
+              <mat-select [value]="rule.op" (valueChange)="setRule($index, { op: $event })">
+                @for (o of operators; track o.op) {
+                  <mat-option [value]="o.op">{{ o.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            @if (ruleNeedsValue(rule)) {
+              <mat-form-field appearance="outline">
+                <mat-label>Valeur</mat-label>
+                <input
+                  matInput
+                  [ngModel]="rule.value"
+                  (ngModelChange)="setRule($index, { value: $event })" />
+              </mat-form-field>
+            }
+          </div>
+        }
+
+        <button mat-stroked-button type="button" (click)="addRule()">
+          <mat-icon>add</mat-icon>
+          Ajouter une règle
+        </button>
+
+        <p class="props__note">
+          Un champ masqué est désactivé : il sort du payload et ne bloque plus la validation.
+        </p>
+      }
     }
   }
+
 </section>

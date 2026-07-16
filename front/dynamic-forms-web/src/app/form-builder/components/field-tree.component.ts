@@ -10,8 +10,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { FieldSchema } from '../../dynamic-form/models/form-schema.model';
-import { BuilderStateService, FIELD_TYPES, FieldPath } from '../services/builder-state.service';
+import { FieldDefinition, FieldSchema } from '../../dynamic-form/models/form-schema.model';
+import { BuilderStateService, FieldPath, TYPE_ICONS } from '../services/builder-state.service';
 
 /**
  * Arbre des champs du builder.
@@ -43,17 +43,21 @@ export class FieldTreeComponent {
   /** Chemin du conteneur qui porte ces champs. Vide = racine. */
   readonly parentPath = input<FieldPath>([]);
 
-  readonly state = inject(BuilderStateService);
+  /**
+   * La bibliothèque, pour le menu « + » des conteneurs. Passée en input et propagée à chaque
+   * niveau de l'arbre : la charger dans chaque nœud multiplierait les appels réseau.
+   */
+  readonly library = input<FieldDefinition[]>([]);
 
-  /** Les types qu'on peut ajouter dans un conteneur, pour le menu « + ». */
-  readonly fieldTypes = FIELD_TYPES;
+  readonly state = inject(BuilderStateService);
 
   pathOf(index: number): FieldPath {
     return [...this.parentPath(), index];
   }
 
+  /** Le champ posé est indépendant de la bibliothèque : son type est la seule info sûre. */
   iconFor(field: FieldSchema): string {
-    return FIELD_TYPES.find((t) => t.type === field.type)?.icon ?? 'help_outline';
+    return TYPE_ICONS[field.type] ?? 'help_outline';
   }
 
   isContainer(field: FieldSchema): boolean {

@@ -18,7 +18,12 @@ import {
   ResultMappingSchema,
   ValidatorSchema,
 } from '../../dynamic-form/models/form-schema.model';
-import { BuilderStateService, FIELD_TYPES, FieldPath } from '../services/builder-state.service';
+import {
+  BuilderStateService,
+  FIELD_TYPE_LIST,
+  FieldPath,
+  TYPE_LABELS,
+} from '../services/builder-state.service';
 
 /** Les validateurs proposés dans le panneau, et s'ils prennent un argument. */
 interface ValidatorInfo {
@@ -87,9 +92,17 @@ export class FieldPropertiesComponent {
   readonly lookupSources = input<string[]>([]);
   readonly dataSources = input<DataSourceDefinition[]>([]);
 
+  /**
+   * Affiche les propriétés qui dépendent du formulaire d'accueil : largeur et condition
+   * d'affichage. La bibliothèque de champs les masque — un modèle de champ ne sait pas dans
+   * quel formulaire il atterrira.
+   */
+  readonly contextual = input(true);
+
   private readonly state = inject(BuilderStateService);
 
-  readonly fieldTypes = FIELD_TYPES;
+  readonly fieldTypes = FIELD_TYPE_LIST;
+  readonly typeLabels = TYPE_LABELS;
   readonly operators = OPERATORS;
 
   readonly isContainer = computed(() => {
