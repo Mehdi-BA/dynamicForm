@@ -10,15 +10,21 @@ namespace DynamicForms.Api.Services;
 /// créés par le form builder vivent dans le même dictionnaire. Ils sont donc perdus au
 /// redémarrage — suffisant ici, puisque le sujet est le moteur, pas la persistance.
 ///
+/// Les formulaires d'exemple ne déclarent plus leurs champs : ils les <b>composent</b> depuis
+/// la <see cref="FieldLibrary"/>, exactement comme le fait un utilisateur dans le builder.
+/// Un champ « email » n'est donc défini qu'à un seul endroit.
+///
 /// Le dictionnaire est accédé en concurrence par les requêtes HTTP (le service est
 /// singleton), d'où le ConcurrentDictionary.
 /// </summary>
 public sealed class FormSchemaCatalog
 {
     private readonly ConcurrentDictionary<string, FormSchema> _schemas;
+    private readonly FieldLibrary _library;
 
-    public FormSchemaCatalog()
+    public FormSchemaCatalog(FieldLibrary library)
     {
+        _library = library;
         _schemas = new(StringComparer.OrdinalIgnoreCase);
         _schemas["client"] = BuildClientForm();
         _schemas["contact"] = BuildContactForm();
@@ -39,11 +45,53 @@ public sealed class FormSchemaCatalog
 
     public bool Delete(string id) => _schemas.TryRemove(id, out _);
 
+    // -------------------------------------------------------------------------
+    // Composition : copier un champ de la bibliothèque, puis le contextualiser
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Un champ de la bibliothèque, posé dans ce formulaire. `cols`, `visibleIf` et `label`
+    /// sont contextuels : ils dépendent du formulaire d'accueil, pas du champ — c'est
+    /// précisément ce que règle l'utilisateur dans le builder après avoir cliqué la palette.
+    /// </summary>
+    private FieldSchema Field(
+        string id,
+        int cols = 12,
+        ConditionSchema? visibleIf = null,
+        string? label = null)
+    {
+        var field = _library.Copy(id);
+
+        field.Cols = cols;
+        field.VisibleIf = visibleIf;
+
+        if (label is not null)
+            field.Label = label;
+
+        return field;
+    }
+
+    /// <summary>Condition « ce champ vaut cette valeur ».</summary>
+    private static ConditionSchema Eq(string field, object value) =>
+        new() { Field = field, Op = "eq", Value = value };
+
+    /// <summary>Condition « ce champ est renseigné / coché ».</summary>
+    private static ConditionSchema Truthy(string field) =>
+        new() { Field = field, Op = "truthy" };
+
+    /// <summary>Toutes les sous-conditions doivent être vraies.</summary>
+    private static ConditionSchema And(params ConditionSchema[] conditions) =>
+        new() { And = [.. conditions] };
+
+    // -------------------------------------------------------------------------
+    // Les formulaires d'exemple
+    // -------------------------------------------------------------------------
+
     /// <summary>
     /// Fiche client : exerce le conditionnel (visibleIf), le sous-formulaire (group),
     /// la liste répétable (array), l'autocomplete distant et un validateur custom.
     /// </summary>
-    private static FormSchema BuildClientForm() => new()
+    private FormSchema BuildClientForm() => new()
     {
         Id = "client",
         Title = "Fiche client",
@@ -66,8 +114,8 @@ public sealed class FormSchemaCatalog
                 ],
             },
             // Source « riche » : chaque résultat porte plusieurs champs, ce qui permet
-            // à l'autocomplete « rattachement » plus bas d'auto-remplir ville, secteur
-            // et matricule à la sélection d'un client (voir ResultMappings).
+            // à l'autocomplete « rattachement » d'auto-remplir la ville à la sélection
+            // d'un client (voir les ResultMappings du champ, dans la bibliothèque).
             new DataSourceDefinition
             {
                 Id = "clients",
@@ -87,284 +135,37 @@ public sealed class FormSchemaCatalog
         ],
         Fields =
         [
-            new FieldSchema
-            {
-                Type = "radio",
-                Name = "clientType",
-                Label = "Type de client",
-                DefaultValue = "particulier",
-                Cols = 12,
-                Validators = [new ValidatorSchema { Type = "required" }],
-                Options =
-                [
-                    new OptionSchema { Value = "particulier", Label = "Particulier" },
-                    new OptionSchema { Value = "pro", Label = "Professionnel" },
-                ],
-            },
+            Field("clientType"),
 
             // --- Bloc particulier : visible seulement si clientType == "particulier" ---
-            new FieldSchema
-            {
-                Type = "text",
-                Name = "prenom",
-                Label = "Prénom",
-                Cols = 6,
-                Validators =
-                [
-                    new ValidatorSchema { Type = "required" },
-                    new ValidatorSchema { Type = "minLength", Value = 2 },
-                ],
-                VisibleIf = new ConditionSchema { Field = "clientType", Op = "eq", Value = "particulier" },
-            },
-            new FieldSchema
-            {
-                Type = "text",
-                Name = "nom",
-                Label = "Nom",
-                Cols = 6,
-                Validators = [new ValidatorSchema { Type = "required" }],
-                VisibleIf = new ConditionSchema { Field = "clientType", Op = "eq", Value = "particulier" },
-            },
+            Field("prenom", cols: 6, visibleIf: Eq("clientType", "particulier")),
+            Field("nom", cols: 6, visibleIf: Eq("clientType", "particulier")),
 
             // --- Bloc professionnel : visible seulement si clientType == "pro" ---
-            new FieldSchema
-            {
-                Type = "text",
-                Name = "raisonSociale",
-                Label = "Raison sociale",
-                Cols = 6,
-                Validators = [new ValidatorSchema { Type = "required" }],
-                VisibleIf = new ConditionSchema { Field = "clientType", Op = "eq", Value = "pro" },
-            },
-            new FieldSchema
-            {
-                Type = "text",
-                Name = "matriculeFiscal",
-                Label = "Matricule fiscal",
-                Placeholder = "1234567A/M/000",
-                Hint = "Format : 1234567A/M/000",
-                Cols = 6,
-                Validators =
-                [
-                    new ValidatorSchema { Type = "required" },
-                    // Validateur custom : la logique vit dans le registre Angular, pas ici.
-                    new ValidatorSchema { Type = "matriculeFiscal", Message = "Matricule fiscal invalide" },
-                ],
-                VisibleIf = new ConditionSchema { Field = "clientType", Op = "eq", Value = "pro" },
-            },
-            new FieldSchema
-            {
-                Type = "checkbox",
-                Name = "assujettiTva",
-                Label = "Assujetti à la TVA",
-                DefaultValue = true,
-                Cols = 6,
-                VisibleIf = new ConditionSchema { Field = "clientType", Op = "eq", Value = "pro" },
-            },
-            new FieldSchema
-            {
-                Type = "number",
-                Name = "tauxTva",
-                Label = "Taux de TVA (%)",
-                DefaultValue = 19,
-                Cols = 6,
-                Validators =
-                [
-                    new ValidatorSchema { Type = "required" },
-                    new ValidatorSchema { Type = "min", Value = 0 },
-                    new ValidatorSchema { Type = "max", Value = 100 },
-                ],
-                // Condition composée : pro ET assujetti.
-                VisibleIf = new ConditionSchema
-                {
-                    And =
-                    [
-                        new ConditionSchema { Field = "clientType", Op = "eq", Value = "pro" },
-                        new ConditionSchema { Field = "assujettiTva", Op = "truthy" },
-                    ],
-                },
-            },
+            Field("raisonSociale", cols: 6, visibleIf: Eq("clientType", "pro")),
+            Field("matriculeFiscal", cols: 6, visibleIf: Eq("clientType", "pro")),
+            Field("assujettiTva", cols: 6, visibleIf: Eq("clientType", "pro")),
+            // Condition composée : pro ET assujetti.
+            Field("tauxTva", cols: 6, visibleIf: And(Eq("clientType", "pro"), Truthy("assujettiTva"))),
 
             // --- Champs communs ---
-            new FieldSchema
-            {
-                Type = "email",
-                Name = "email",
-                Label = "Email",
-                Cols = 6,
-                Validators =
-                [
-                    new ValidatorSchema { Type = "required" },
-                    new ValidatorSchema { Type = "email" },
-                ],
-            },
-            new FieldSchema
-            {
-                Type = "text",
-                Name = "telephone",
-                Label = "Téléphone",
-                Placeholder = "+216 20 000 000",
-                Cols = 6,
-                Validators =
-                [
-                    new ValidatorSchema
-                    {
-                        Type = "pattern",
-                        Value = @"^\+?[0-9 ]{8,15}$",
-                        Message = "Numéro de téléphone invalide",
-                    },
-                ],
-            },
-            new FieldSchema
-            {
-                Type = "date",
-                Name = "dateEntree",
-                Label = "Client depuis le",
-                Cols = 6,
-                Validators = [new ValidatorSchema { Type = "required" }],
-            },
-            new FieldSchema
-            {
-                Type = "select",
-                Name = "segment",
-                Label = "Segment",
-                Cols = 6,
-                Options =
-                [
-                    new OptionSchema { Value = "vip", Label = "VIP" },
-                    new OptionSchema { Value = "standard", Label = "Standard" },
-                    new OptionSchema { Value = "prospect", Label = "Prospect" },
-                ],
-            },
+            Field("email", cols: 6),
+            Field("telephone", cols: 6),
+            Field("dateEntree", cols: 6),
+            Field("segment", cols: 6),
 
-            // --- Sous-formulaire : FormGroup imbriqué ---
-            new FieldSchema
-            {
-                Type = "group",
-                Name = "adresse",
-                Label = "Adresse",
-                Fields =
-                [
-                    new FieldSchema
-                    {
-                        Type = "text",
-                        Name = "rue",
-                        Label = "Rue",
-                        Cols = 12,
-                        Validators = [new ValidatorSchema { Type = "required" }],
-                    },
-                    new FieldSchema
-                    {
-                        Type = "text",
-                        Name = "ville",
-                        Label = "Ville",
-                        Cols = 6,
-                        Validators = [new ValidatorSchema { Type = "required" }],
-                    },
-                    new FieldSchema
-                    {
-                        Type = "text",
-                        Name = "codePostal",
-                        Label = "Code postal",
-                        Cols = 6,
-                        Validators =
-                        [
-                            new ValidatorSchema { Type = "pattern", Value = "^[0-9]{4}$", Message = "4 chiffres attendus" },
-                        ],
-                    },
-                    new FieldSchema
-                    {
-                        Type = "autocomplete",
-                        Name = "pays",
-                        Label = "Pays",
-                        Placeholder = "Tapez pour rechercher…",
-                        DataSourceId = "pays",
-                        LookupUrl = "/api/referentials/pays/search",
-                        LookupKeyField = "key",
-                        LookupValueField = "value",
-                        LookupQueryParam = "q",
-                        Cols = 12,
-                        Validators = [new ValidatorSchema { Type = "required" }],
-                    },
-                ],
-            },
+            // Sous-formulaire (FormGroup imbriqué) et liste répétable (FormArray) : le bloc
+            // entier vient de la bibliothèque, sous-champs compris.
+            Field("adresse"),
+            Field("contacts"),
 
-            // --- Liste répétable : FormArray de FormGroup ---
-            new FieldSchema
-            {
-                Type = "array",
-                Name = "contacts",
-                Label = "Contacts",
-                AddLabel = "Ajouter un contact",
-                InitialItems = 1,
-                Fields =
-                [
-                    new FieldSchema
-                    {
-                        Type = "text",
-                        Name = "nom",
-                        Label = "Nom du contact",
-                        Cols = 4,
-                        Validators = [new ValidatorSchema { Type = "required" }],
-                    },
-                    new FieldSchema
-                    {
-                        Type = "select",
-                        Name = "fonction",
-                        Label = "Fonction",
-                        Cols = 4,
-                        Options =
-                        [
-                            new OptionSchema { Value = "achat", Label = "Responsable achats" },
-                            new OptionSchema { Value = "compta", Label = "Comptabilité" },
-                            new OptionSchema { Value = "direction", Label = "Direction" },
-                            new OptionSchema { Value = "autre", Label = "Autre" },
-                        ],
-                    },
-                    new FieldSchema
-                    {
-                        Type = "email",
-                        Name = "email",
-                        Label = "Email",
-                        Cols = 4,
-                        Validators = [new ValidatorSchema { Type = "email" }],
-                    },
-                ],
-            },
-
-            // --- Autocomplete « riche » + auto-remplissage ---
-            // Rattacher la fiche à un client existant : à la sélection, la ville du client
-            // choisi remplit automatiquement « adresse.ville » (resultMappings). C'est la
-            // démonstration bout-en-bout du mapping de résultat, qu'une source key/value
-            // (pays) ne permet pas d'illustrer.
-            new FieldSchema
-            {
-                Type = "autocomplete",
-                Name = "rattachement",
-                Label = "Rattaché au client",
-                Placeholder = "Tapez pour rechercher un client…",
-                Hint = "Choisir un client remplit automatiquement la ville de l'adresse.",
-                DataSourceId = "clients",
-                Cols = 12,
-                ResultMappings =
-                [
-                    new ResultMappingSchema { SourceField = "ville", TargetField = "adresse.ville" },
-                ],
-            },
-
-            new FieldSchema
-            {
-                Type = "textarea",
-                Name = "notes",
-                Label = "Notes internes",
-                Cols = 12,
-                Validators = [new ValidatorSchema { Type = "maxLength", Value = 500 }],
-            },
+            Field("rattachement"),
+            Field("notes", label: "Notes internes"),
         ],
     };
 
     /// <summary>Formulaire court, pour vérifier que le moteur marche sur un schéma trivial.</summary>
-    private static FormSchema BuildContactForm() => new()
+    private FormSchema BuildContactForm() => new()
     {
         Id = "contact",
         Title = "Demande de contact",
@@ -372,52 +173,11 @@ public sealed class FormSchemaCatalog
         SubmitLabel = "Envoyer",
         Fields =
         [
-            new FieldSchema
-            {
-                Type = "text",
-                Name = "nom",
-                Label = "Votre nom",
-                Cols = 6,
-                Validators = [new ValidatorSchema { Type = "required" }],
-            },
-            new FieldSchema
-            {
-                Type = "email",
-                Name = "email",
-                Label = "Votre email",
-                Cols = 6,
-                Validators =
-                [
-                    new ValidatorSchema { Type = "required" },
-                    new ValidatorSchema { Type = "email" },
-                ],
-            },
-            new FieldSchema
-            {
-                Type = "select",
-                Name = "sujet",
-                Label = "Sujet",
-                Cols = 12,
-                Validators = [new ValidatorSchema { Type = "required" }],
-                Options =
-                [
-                    new OptionSchema { Value = "commercial", Label = "Question commerciale" },
-                    new OptionSchema { Value = "support", Label = "Support technique" },
-                    new OptionSchema { Value = "autre", Label = "Autre" },
-                ],
-            },
-            new FieldSchema
-            {
-                Type = "textarea",
-                Name = "message",
-                Label = "Message",
-                Cols = 12,
-                Validators =
-                [
-                    new ValidatorSchema { Type = "required" },
-                    new ValidatorSchema { Type = "minLength", Value = 10 },
-                ],
-            },
+            // Le libellé est contextuel : « Votre nom » ici, « Nom » sur la fiche client.
+            Field("nom", cols: 6, label: "Votre nom"),
+            Field("email", cols: 6, label: "Votre email"),
+            Field("sujet"),
+            Field("message"),
         ],
     };
 }

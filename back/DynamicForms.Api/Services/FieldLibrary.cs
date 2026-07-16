@@ -83,6 +83,27 @@ public sealed class FieldLibrary
         return true;
     }
 
+    /// <summary>
+    /// Le modèle d'un champ, prêt à être posé dans un formulaire. C'est l'équivalent back de
+    /// `addFieldFromLibrary()` côté builder : on copie, puis l'appelant contextualise (Cols,
+    /// VisibleIf…).
+    ///
+    /// Clone profond : sans lui, deux formulaires partageraient le même objet et le second
+    /// écraserait le contexte du premier.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Si l'id n'existe pas dans la bibliothèque.</exception>
+    public FieldSchema Copy(string id)
+    {
+        var definition = Get(id)
+            ?? throw new InvalidOperationException(
+                $"Le champ « {id} » est absent de la bibliothèque, or un formulaire l'utilise. " +
+                $"Rétablissez-le depuis la page /fields, ou supprimez « {_filePath} » " +
+                "pour régénérer la bibliothèque d'origine.");
+
+        return JsonSerializer.Deserialize<FieldSchema>(
+            JsonSerializer.Serialize(definition.Field, JsonOptions), JsonOptions)!;
+    }
+
     // -------------------------------------------------------------------------
     // Persistance
     // -------------------------------------------------------------------------
@@ -264,6 +285,246 @@ public sealed class FieldLibrary
                             new ValidatorSchema { Type = "pattern", Value = "^[0-9]{4}$", Message = "4 chiffres attendus" },
                         ],
                     },
+                    new FieldSchema
+                    {
+                        Type = "autocomplete",
+                        Name = "pays",
+                        Label = "Pays",
+                        Placeholder = "Tapez pour rechercher…",
+                        DataSourceId = "pays",
+                        LookupUrl = "/api/referentials/pays/search",
+                        LookupKeyField = "key",
+                        LookupValueField = "value",
+                        LookupQueryParam = "q",
+                        Validators = [new ValidatorSchema { Type = "required" }],
+                    },
+                ],
+            },
+        },
+
+        // --- Champs « fiche client » -----------------------------------------------------
+        new()
+        {
+            Id = "clientType",
+            Label = "Type de client",
+            Icon = "radio_button_checked",
+            Description = "Particulier ou professionnel — pilote l'affichage conditionnel.",
+            Field = new FieldSchema
+            {
+                Type = "radio",
+                Name = "clientType",
+                Label = "Type de client",
+                DefaultValue = "particulier",
+                Validators = [new ValidatorSchema { Type = "required" }],
+                Options =
+                [
+                    new OptionSchema { Value = "particulier", Label = "Particulier" },
+                    new OptionSchema { Value = "pro", Label = "Professionnel" },
+                ],
+            },
+        },
+        new()
+        {
+            Id = "raisonSociale",
+            Label = "Raison sociale",
+            Icon = "business",
+            Field = new FieldSchema
+            {
+                Type = "text",
+                Name = "raisonSociale",
+                Label = "Raison sociale",
+                Validators = [new ValidatorSchema { Type = "required" }],
+            },
+        },
+        new()
+        {
+            Id = "matriculeFiscal",
+            Label = "Matricule fiscal",
+            Icon = "receipt_long",
+            Description = "Validé par le validateur custom « matriculeFiscal » du registre Angular.",
+            Field = new FieldSchema
+            {
+                Type = "text",
+                Name = "matriculeFiscal",
+                Label = "Matricule fiscal",
+                Placeholder = "1234567A/M/000",
+                Hint = "Format : 1234567A/M/000",
+                Validators =
+                [
+                    new ValidatorSchema { Type = "required" },
+                    // Validateur custom : la logique vit dans le registre Angular, pas ici.
+                    new ValidatorSchema { Type = "matriculeFiscal", Message = "Matricule fiscal invalide" },
+                ],
+            },
+        },
+        new()
+        {
+            Id = "assujettiTva",
+            Label = "Assujetti à la TVA",
+            Icon = "check_box",
+            Field = new FieldSchema
+            {
+                Type = "checkbox",
+                Name = "assujettiTva",
+                Label = "Assujetti à la TVA",
+                DefaultValue = true,
+            },
+        },
+        new()
+        {
+            Id = "tauxTva",
+            Label = "Taux de TVA",
+            Icon = "percent",
+            Field = new FieldSchema
+            {
+                Type = "number",
+                Name = "tauxTva",
+                Label = "Taux de TVA (%)",
+                DefaultValue = 19,
+                Validators =
+                [
+                    new ValidatorSchema { Type = "required" },
+                    new ValidatorSchema { Type = "min", Value = 0 },
+                    new ValidatorSchema { Type = "max", Value = 100 },
+                ],
+            },
+        },
+        new()
+        {
+            Id = "segment",
+            Label = "Segment",
+            Icon = "arrow_drop_down_circle",
+            Field = new FieldSchema
+            {
+                Type = "select",
+                Name = "segment",
+                Label = "Segment",
+                Options =
+                [
+                    new OptionSchema { Value = "vip", Label = "VIP" },
+                    new OptionSchema { Value = "standard", Label = "Standard" },
+                    new OptionSchema { Value = "prospect", Label = "Prospect" },
+                ],
+            },
+        },
+        new()
+        {
+            Id = "dateEntree",
+            Label = "Client depuis le",
+            Icon = "event",
+            Field = new FieldSchema
+            {
+                Type = "date",
+                Name = "dateEntree",
+                Label = "Client depuis le",
+                Validators = [new ValidatorSchema { Type = "required" }],
+            },
+        },
+        new()
+        {
+            Id = "rattachement",
+            Label = "Rattaché au client",
+            Icon = "link",
+            Description = "Autocomplete : choisir un client auto-remplit la ville de l'adresse.",
+            Field = new FieldSchema
+            {
+                Type = "autocomplete",
+                Name = "rattachement",
+                Label = "Rattaché au client",
+                Placeholder = "Tapez pour rechercher un client…",
+                Hint = "Choisir un client remplit automatiquement la ville de l'adresse.",
+                DataSourceId = "clients",
+                // Le mapping est intrinsèque au champ : il fait partie de ce qu'il est.
+                ResultMappings =
+                [
+                    new ResultMappingSchema { SourceField = "ville", TargetField = "adresse.ville" },
+                ],
+            },
+        },
+        // Une liste répétable : tout le bloc arrive d'un coup, comme « adresse ».
+        new()
+        {
+            Id = "contacts",
+            Label = "Contacts",
+            Icon = "format_list_numbered",
+            Description = "Liste répétable : nom, fonction et email par contact.",
+            Field = new FieldSchema
+            {
+                Type = "array",
+                Name = "contacts",
+                Label = "Contacts",
+                AddLabel = "Ajouter un contact",
+                InitialItems = 1,
+                Fields =
+                [
+                    new FieldSchema
+                    {
+                        Type = "text",
+                        Name = "nom",
+                        Label = "Nom du contact",
+                        Cols = 4,
+                        Validators = [new ValidatorSchema { Type = "required" }],
+                    },
+                    new FieldSchema
+                    {
+                        Type = "select",
+                        Name = "fonction",
+                        Label = "Fonction",
+                        Cols = 4,
+                        Options =
+                        [
+                            new OptionSchema { Value = "achat", Label = "Responsable achats" },
+                            new OptionSchema { Value = "compta", Label = "Comptabilité" },
+                            new OptionSchema { Value = "direction", Label = "Direction" },
+                            new OptionSchema { Value = "autre", Label = "Autre" },
+                        ],
+                    },
+                    new FieldSchema
+                    {
+                        Type = "email",
+                        Name = "email",
+                        Label = "Email",
+                        Cols = 4,
+                        Validators = [new ValidatorSchema { Type = "email" }],
+                    },
+                ],
+            },
+        },
+
+        // --- Champs « demande de contact » -----------------------------------------------
+        new()
+        {
+            Id = "sujet",
+            Label = "Sujet",
+            Icon = "topic",
+            Field = new FieldSchema
+            {
+                Type = "select",
+                Name = "sujet",
+                Label = "Sujet",
+                Validators = [new ValidatorSchema { Type = "required" }],
+                Options =
+                [
+                    new OptionSchema { Value = "commercial", Label = "Question commerciale" },
+                    new OptionSchema { Value = "support", Label = "Support technique" },
+                    new OptionSchema { Value = "autre", Label = "Autre" },
+                ],
+            },
+        },
+        new()
+        {
+            Id = "message",
+            Label = "Message",
+            Icon = "chat",
+            Field = new FieldSchema
+            {
+                Type = "textarea",
+                Name = "message",
+                Label = "Message",
+                Validators =
+                [
+                    new ValidatorSchema { Type = "required" },
+                    new ValidatorSchema { Type = "minLength", Value = 10 },
                 ],
             },
         },

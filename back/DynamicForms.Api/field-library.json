@@ -52,9 +52,132 @@
             }
           ],
           "initialItems": 0
+        },
+        {
+          "type": "autocomplete",
+          "name": "pays",
+          "label": "Pays",
+          "placeholder": "Tapez pour rechercher\u2026",
+          "disabled": false,
+          "cols": 12,
+          "validators": [
+            {
+              "type": "required"
+            }
+          ],
+          "dataSourceId": "pays",
+          "lookupUrl": "/api/referentials/pays/search",
+          "lookupKeyField": "key",
+          "lookupValueField": "value",
+          "lookupQueryParam": "q",
+          "initialItems": 0
         }
       ],
       "initialItems": 0
+    }
+  },
+  {
+    "id": "assujettiTva",
+    "label": "Assujetti \u00E0 la TVA",
+    "icon": "check_box",
+    "field": {
+      "type": "checkbox",
+      "name": "assujettiTva",
+      "label": "Assujetti \u00E0 la TVA",
+      "defaultValue": true,
+      "disabled": false,
+      "cols": 12,
+      "validators": [],
+      "initialItems": 0
+    }
+  },
+  {
+    "id": "dateEntree",
+    "label": "Client depuis le",
+    "icon": "event",
+    "field": {
+      "type": "date",
+      "name": "dateEntree",
+      "label": "Client depuis le",
+      "disabled": false,
+      "cols": 12,
+      "validators": [
+        {
+          "type": "required"
+        }
+      ],
+      "initialItems": 0
+    }
+  },
+  {
+    "id": "contacts",
+    "label": "Contacts",
+    "icon": "format_list_numbered",
+    "description": "Liste r\u00E9p\u00E9table : nom, fonction et email par contact.",
+    "field": {
+      "type": "array",
+      "name": "contacts",
+      "label": "Contacts",
+      "disabled": false,
+      "cols": 12,
+      "validators": [],
+      "fields": [
+        {
+          "type": "text",
+          "name": "nom",
+          "label": "Nom du contact",
+          "disabled": false,
+          "cols": 4,
+          "validators": [
+            {
+              "type": "required"
+            }
+          ],
+          "initialItems": 0
+        },
+        {
+          "type": "select",
+          "name": "fonction",
+          "label": "Fonction",
+          "disabled": false,
+          "cols": 4,
+          "validators": [],
+          "options": [
+            {
+              "value": "achat",
+              "label": "Responsable achats"
+            },
+            {
+              "value": "compta",
+              "label": "Comptabilit\u00E9"
+            },
+            {
+              "value": "direction",
+              "label": "Direction"
+            },
+            {
+              "value": "autre",
+              "label": "Autre"
+            }
+          ],
+          "initialItems": 0
+        },
+        {
+          "type": "email",
+          "name": "email",
+          "label": "Email",
+          "disabled": false,
+          "cols": 4,
+          "validators": [
+            {
+              "type": "email"
+            }
+          ],
+          "initialItems": 0
+        }
+      ],
+      "addLabel": "Ajouter un contact",
+      "initialItems": 1
     }
   },
   {
@@ -88,6 +211,53 @@
         },
         {
           "type": "email"
+        }
+      ],
+      "initialItems": 0
+    }
+  },
+  {
+    "id": "matriculeFiscal",
+    "label": "Matricule fiscal",
+    "icon": "receipt_long",
+    "description": "Valid\u00E9 par le validateur custom \u00AB matriculeFiscal \u00BB du registre Angular.",
+    "field": {
+      "type": "text",
+      "name": "matriculeFiscal",
+      "label": "Matricule fiscal",
+      "placeholder": "1234567A/M/000",
+      "hint": "Format : 1234567A/M/000",
+      "disabled": false,
+      "cols": 12,
+      "validators": [
+        {
+          "type": "required"
+        },
+        {
+          "type": "matriculeFiscal",
+          "message": "Matricule fiscal invalide"
+        }
+      ],
+      "initialItems": 0
+    }
+  },
+  {
+    "id": "message",
+    "label": "Message",
+    "icon": "chat",
+    "field": {
+      "type": "textarea",
+      "name": "message",
+      "label": "Message",
+      "disabled": false,
+      "cols": 12,
+      "validators": [
+        {
+          "type": "required"
+        },
+        {
+          "type": "minLength",
+          "value": 10
         }
       ],
       "initialItems": 0
@@ -154,6 +324,135 @@
     }
   },
   {
+    "id": "raisonSociale",
+    "label": "Raison sociale",
+    "icon": "business",
+    "field": {
+      "type": "text",
+      "name": "raisonSociale",
+      "label": "Raison sociale",
+      "disabled": false,
+      "cols": 12,
+      "validators": [
+        {
+          "type": "required"
+        }
+      ],
+      "initialItems": 0
+    }
+  },
+  {
+    "id": "rattachement",
+    "label": "Rattach\u00E9 au client",
+    "icon": "link",
+    "description": "Autocomplete : choisir un client auto-remplit la ville de l\u0027adresse.",
+    "field": {
+      "type": "autocomplete",
+      "name": "rattachement",
+      "label": "Rattach\u00E9 au client",
+      "placeholder": "Tapez pour rechercher un client\u2026",
+      "hint": "Choisir un client remplit automatiquement la ville de l\u0027adresse.",
+      "disabled": false,
+      "cols": 12,
+      "validators": [],
+      "dataSourceId": "clients",
+      "resultMappings": [
+        {
+          "sourceField": "ville",
+          "targetField": "adresse.ville"
+        }
+      ],
+      "initialItems": 0
+    }
+  },
+  {
+    "id": "segment",
+    "label": "Segment",
+    "icon": "arrow_drop_down_circle",
+    "field": {
+      "type": "select",
+      "name": "segment",
+      "label": "Segment",
+      "disabled": false,
+      "cols": 12,
+      "validators": [],
+      "options": [
+        {
+          "value": "vip",
+          "label": "VIP"
+        },
+        {
+          "value": "standard",
+          "label": "Standard"
+        },
+        {
+          "value": "prospect",
+          "label": "Prospect"
+        }
+      ],
+      "initialItems": 0
+    }
+  },
+  {
+    "id": "sujet",
+    "label": "Sujet",
+    "icon": "topic",
+    "field": {
+      "type": "select",
+      "name": "sujet",
+      "label": "Sujet",
+      "disabled": false,
+      "cols": 12,
+      "validators": [
+        {
+          "type": "required"
+        }
+      ],
+      "options": [
+        {
+          "value": "commercial",
+          "label": "Question commerciale"
+        },
+        {
+          "value": "support",
+          "label": "Support technique"
+        },
+        {
+          "value": "autre",
+          "label": "Autre"
+        }
+      ],
+      "initialItems": 0
+    }
+  },
+  {
+    "id": "tauxTva",
+    "label": "Taux de TVA",
+    "icon": "percent",
+    "field": {
+      "type": "number",
+      "name": "tauxTva",
+      "label": "Taux de TVA (%)",
+      "defaultValue": 19,
+      "disabled": false,
+      "cols": 12,
+      "validators": [
+        {
+          "type": "required"
+        },
+        {
+          "type": "min",
+          "value": 0
+        },
+        {
+          "type": "max",
+          "value": 100
+        }
+      ],
+      "initialItems": 0
+    }
+  },
+  {
     "id": "telephone",
     "label": "T\u00E9l\u00E9phone",
     "icon": "call",
@@ -169,6 +468,36 @@
           "type": "pattern",
           "value": "^\\\u002B?[0-9 ]{8,15}$",
           "message": "Num\u00E9ro de t\u00E9l\u00E9phone invalide"
+        }
+      ],
+      "initialItems": 0
+    }
+  },
+  {
+    "id": "clientType",
+    "label": "Type de client",
+    "icon": "radio_button_checked",
+    "description": "Particulier ou professionnel \u2014 pilote l\u0027affichage conditionnel.",
+    "field": {
+      "type": "radio",
+      "name": "clientType",
+      "label": "Type de client",
+      "defaultValue": "particulier",
+      "disabled": false,
+      "cols": 12,
+      "validators": [
+        {
+          "type": "required"
+        }
+      ],
+      "options": [
+        {
+          "value": "particulier",
+          "label": "Particulier"
+        },
+        {
+          "value": "pro",
+          "label": "Professionnel"
         }
       ],
       "initialItems": 0
