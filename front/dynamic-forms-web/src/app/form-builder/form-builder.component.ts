@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog } from '@angular/material/dialog';
@@ -41,6 +42,7 @@ import { BuilderStateService, FIELD_TYPES } from './services/builder-state.servi
     MatToolbarModule,
     MatCardModule,
     MatButtonModule,
+    MatButtonToggleModule,
     MatIconModule,
     MatFormFieldModule,
     MatInputModule,
@@ -78,6 +80,9 @@ export class FormBuilderComponent {
 
   /** L'aperçu ne peut rien rendre tant qu'il n'y a aucun champ. */
   readonly canPreview = computed(() => this.schema().fields.length > 0);
+
+  /** Un fragment n'a ni titre ni bouton d'envoi : le panneau s'adapte. */
+  readonly isFragment = computed(() => this.state.schema().kind === 'fragment');
 
   readonly json = computed(() => JSON.stringify(this.schema(), null, 2));
 

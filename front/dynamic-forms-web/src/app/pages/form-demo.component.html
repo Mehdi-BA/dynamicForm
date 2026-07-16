@@ -30,10 +30,63 @@
     }
 
     @if (schema(); as s) {
-      <app-dynamic-form
-        [schema]="s"
-        [debug]="true"
-        (submitted)="onSubmitted($event)" />
+      @if (isFragment()) {
+        <!--
+          Fragment : il n'est pas autonome. C'est CE formulaire (l'hôte) qui fournit le
+          FormGroup, porte ses propres champs et pilote la validation et l'envoi.
+        -->
+        <mat-card appearance="outlined" class="demo-host">
+          <mat-card-header>
+            <mat-card-title>Formulaire hôte</mat-card-title>
+            <mat-card-subtitle>
+              Le fragment « {{ s.id }} » est intégré ci-dessous, sous la clé « details ».
+            </mat-card-subtitle>
+          </mat-card-header>
+
+          <mat-card-content>
+            <form [formGroup]="hostForm" (ngSubmit)="onHostSubmit()" novalidate>
+              <mat-form-field appearance="outline" class="demo-host__field">
+                <mat-label>Référence (champ de l'hôte)</mat-label>
+                <input matInput formControlName="reference" required />
+              </mat-form-field>
+
+              <app-dynamic-form
+                [schema]="s"
+                [parentGroup]="hostForm"
+                [groupName]="'details'" />
+
+              <div class="demo-host__actions">
+                <button mat-flat-button type="submit" [disabled]="hostForm.invalid">
+                  Enregistrer (hôte)
+                </button>
+              </div>
+            </form>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card appearance="outlined" class="demo-host__debug">
+          <mat-card-header>
+            <mat-card-title class="demo-host__debug-title">
+              <mat-icon inline>data_object</mat-icon>
+              Valeur du formulaire hôte
+              <span class="demo-host__status" [class.demo-host__status--invalid]="hostForm.invalid">
+                {{ hostForm.invalid ? 'invalide' : 'valide' }}
+              </span>
+            </mat-card-title>
+            <mat-card-subtitle>
+              Les champs du fragment apparaissent sous « details ».
+            </mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <pre class="demo-host__json">{{ hostValue() | json }}</pre>
+          </mat-card-content>
+        </mat-card>
+      } @else {
+        <app-dynamic-form
+          [schema]="s"
+          [debug]="true"
+          (submitted)="onSubmitted($event)" />
+      }
     }
   }
 </main>

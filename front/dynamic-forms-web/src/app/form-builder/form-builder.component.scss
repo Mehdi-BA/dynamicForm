@@ -120,6 +120,19 @@
   padding: 1.25rem;
 }
 
+.fb-kind {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.fb-kind__hint {
+  flex: 1;
+  min-width: 14rem;
+}
+
 .fb-form-props {
   display: grid;
   grid-template-columns: 1fr 1fr;

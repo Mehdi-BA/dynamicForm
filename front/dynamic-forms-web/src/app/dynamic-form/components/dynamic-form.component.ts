@@ -24,6 +24,22 @@ import { DynamicFieldComponent } from './dynamic-field.component';
  *
  * Il ne connaît aucun type de champ : il délègue à `DynamicFieldComponent`, qui
  * est récursif. Toute l'intelligence de structure vit dans le schéma.
+ *
+ * Deux usages, selon `schema.kind` :
+ *
+ * - **Formulaire complet** (`kind: 'form'`, défaut) — le composant est autonome : il crée son
+ *   FormGroup, affiche sa carte, son titre et son bouton d'envoi, et émet `submitted`.
+ *
+ * - **Fragment** (`kind: 'fragment'`) — seulement les champs, sans carte ni bouton. L'hôte
+ *   fournit son propre FormGroup et garde la maîtrise de la validation et de l'envoi :
+ *
+ *   ```html
+ *   <!-- à plat dans le groupe de l'hôte -->
+ *   <app-dynamic-form [schema]="frag" [parentGroup]="monForm" />
+ *
+ *   <!-- ou regroupés sous un nom : monForm.get('adresse.rue') -->
+ *   <app-dynamic-form [schema]="frag" [parentGroup]="monForm" [groupName]="'adresse'" />
+ *   ```
  */
 @Component({
   selector: 'app-dynamic-form',
@@ -46,10 +62,25 @@ export class DynamicFormComponent {
   /** Valeur initiale, pour un formulaire d'édition. */
   readonly value = input<Record<string, unknown>>();
 
+  /**
+   * Le FormGroup de l'application hôte, quand ce schéma est intégré dans un formulaire plus
+   * large. Fourni : les champs y sont greffés. Absent : le composant crée son propre groupe.
+   */
+  readonly parentGroup = input<FormGroup>();
+
+  /**
+   * Avec `parentGroup` : regroupe les champs sous ce nom (`monForm.get('adresse.rue')`).
+   * Sans : les champs sont greffés à plat dans le groupe de l'hôte.
+   */
+  readonly groupName = input<string>();
+
   /** Affiche la valeur en direct sous le formulaire — utile en démo, à couper en prod. */
   readonly debug = input(false);
 
   readonly submitted = output<Record<string, unknown>>();
+
+  /** Un fragment ne rend que ses champs : ni carte, ni titre, ni bouton d'envoi. */
+  readonly isFragment = computed(() => this.schema().kind === 'fragment');
 
   private readonly builder = inject(DynamicFormBuilderService);
 
@@ -63,13 +94,39 @@ export class DynamicFormComponent {
 
   constructor() {
     // Reconstruire le formulaire à chaque nouveau schéma.
-    effect(() => {
+    effect((onCleanup) => {
       const schema = this.schema();
       const initial = this.value();
+      const parent = this.parentGroup();
+      const name = this.groupName();
 
-      const form = this.builder.build(schema, initial);
-      this.formSignal.set(form);
-      this.currentValue.set(form.value);
+      // Sans groupe hôte : le composant est autonome, il crée son propre FormGroup racine.
+      if (!parent) {
+        const form = this.builder.build(schema, initial);
+        this.formSignal.set(form);
+        this.currentValue.set(form.value);
+        return;
+      }
+
+      // Avec un groupe hôte : on greffe. Sous un sous-groupe nommé, ou à plat.
+      const group = name
+        ? this.attachNamedGroup(parent, name, schema, initial)
+        : this.attachFlat(parent, schema, initial);
+
+      this.formSignal.set(group);
+      this.currentValue.set(group.value);
+
+      // Sans ça, le groupe de l'hôte garderait des contrôles fantômes après un changement
+      // de schéma ou la destruction du fragment.
+      onCleanup(() => {
+        if (name) {
+          parent.removeControl(name);
+        } else {
+          for (const field of schema.fields) {
+            parent.removeControl(field.name);
+          }
+        }
+      });
     });
 
     // Suivre la valeur pour le panneau de debug.
@@ -97,5 +154,39 @@ export class DynamicFormComponent {
 
   onReset(): void {
     this.formSignal.set(this.builder.build(this.schema(), this.value()));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Greffe dans le FormGroup de l'hôte
+  // ---------------------------------------------------------------------------
+
+  /** Les champs vivent dans un sous-groupe nommé : `monForm.get('adresse.rue')`. */
+  private attachNamedGroup(
+    parent: FormGroup,
+    name: string,
+    schema: FormSchema,
+    initial: Record<string, unknown> | undefined,
+  ): FormGroup {
+    const group = this.builder.build(schema, initial);
+
+    // `setControl` et non `addControl` : idempotent si le schéma est reconstruit.
+    parent.setControl(name, group);
+
+    return group;
+  }
+
+  /** Les champs sont greffés directement dans le groupe de l'hôte. */
+  private attachFlat(
+    parent: FormGroup,
+    schema: FormSchema,
+    initial: Record<string, unknown> | undefined,
+  ): FormGroup {
+    this.builder.buildInto(parent, schema.fields);
+
+    if (initial) {
+      this.builder.patch(parent, schema.fields, initial);
+    }
+
+    return parent;
   }
 }

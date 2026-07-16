@@ -41,6 +41,21 @@ export class DynamicFormBuilderService {
   }
 
   /**
+   * Greffe les champs dans un FormGroup existant — celui de l'application hôte, quand un
+   * fragment est intégré dans un formulaire plus large.
+   *
+   * `setControl` et non `addControl` : la greffe doit être idempotente, car le schéma peut
+   * être reconstruit (changement de schéma, aperçu du builder) sur le même groupe hôte.
+   */
+  buildInto(parent: FormGroup, fields: FieldSchema[]): FormGroup {
+    for (const field of fields) {
+      parent.setControl(field.name, this.buildControl(field));
+    }
+
+    return parent;
+  }
+
+  /**
    * Construit une ligne de FormArray : un FormGroup avec les sous-champs du tableau.
    * Exposé publiquement car le composant array l'appelle sur "Ajouter".
    */

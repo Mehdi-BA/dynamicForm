@@ -1,12 +1,24 @@
 namespace DynamicForms.Api.Models;
 
 /// <summary>
-/// Schéma complet d'un formulaire, tel que consommé par le moteur Angular.
+/// Schéma d'un formulaire, tel que consommé par le moteur Angular.
+///
+/// Un schéma est soit un formulaire complet, soit un fragment réutilisable — voir <see cref="Kind"/>.
 /// </summary>
 public sealed class FormSchema
 {
     public string Id { get; set; } = string.Empty;
+
+    /// <summary>
+    /// "form" (défaut) : formulaire complet, rendu avec sa carte, son titre et son bouton d'envoi.
+    /// "fragment" : seulement les champs, destinés à être intégrés dans le formulaire d'une
+    /// application hôte, qui fournit le FormGroup et pilote la validation et l'envoi.
+    /// </summary>
+    public string Kind { get; set; } = "form";
+
+    /// <summary>Obligatoire pour un formulaire complet ; sans objet pour un fragment, qui n'affiche pas de titre.</summary>
     public string Title { get; set; } = string.Empty;
+
     public string? Description { get; set; }
     public string SubmitLabel { get; set; } = "Enregistrer";
     public List<FieldSchema> Fields { get; set; } = [];

@@ -28,6 +28,47 @@
   color: #8c1d18;
 }
 
+// ── Fragment intégré dans un formulaire hôte ──────────────────────────────────
+
+.demo-host__field {
+  width: 100%;
+}
+
+.demo-host__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.demo-host__debug {
+  margin-top: 1.5rem;
+}
+
+.demo-host__debug-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.demo-host__status {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mat-sys-primary, #1976d2);
+}
+
+.demo-host__status--invalid {
+  color: #b3261e;
+}
+
+.demo-host__json {
+  margin: 0;
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
 @media (max-width: 700px) {
   .demo-toolbar__hint {
     display: none;
